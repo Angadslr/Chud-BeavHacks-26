@@ -26,11 +26,12 @@ export function roomRef(roomId) {
   return ref(requireDb(), `rooms/${roomId}`)
 }
 
-export function createRoom(roomId) {
+export function createRoom(roomId, hostId) {
   const now = Date.now()
   return set(roomRef(roomId), {
     createdAt: now,
     lastActivityAt: now,
+    hostId: hostId || null,
     nowPlaying: null,
     previousTrack: null,
     queue: {},

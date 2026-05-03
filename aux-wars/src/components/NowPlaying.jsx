@@ -70,6 +70,23 @@ export const AlbumCover = memo(function AlbumCover({ videoId, storedThumb }) {
   )
 })
 
+function PlayIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M4 2L14 8L4 14V2Z" />
+    </svg>
+  )
+}
+
+function PauseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <rect x="3" y="2" width="4" height="12" rx="1" />
+      <rect x="9" y="2" width="4" height="12" rx="1" />
+    </svg>
+  )
+}
+
 function NowPlayingActive({
   nowPlaying,
   onEnded,
@@ -78,6 +95,7 @@ function NowPlayingActive({
   onPrevious,
   canPrevious,
   hasNextInQueue = false,
+  isHost = false,
 }) {
   const hostRef = useRef(null)
   const playerRef = useRef(null)
@@ -374,10 +392,25 @@ function NowPlayingActive({
           <button
             type="button"
             onClick={togglePlayPause}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm text-black shadow transition-transform active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black shadow transition-transform active:scale-95"
             aria-label={showPlaying ? 'Pause' : 'Play'}
           >
-            {showPlaying ? '⏸' : '▶'}
+            {showPlaying ? <PauseIcon /> : <PlayIcon />}
+          </button>
+        )}
+        {isHost && (
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={!skipEnabled}
+            title={skipTitle}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
+            aria-label="Skip song"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M3 2L11 8L3 14V2Z" />
+              <rect x="12" y="2" width="2" height="12" rx="1" />
+            </svg>
           </button>
         )}
       </div>
@@ -494,7 +527,7 @@ function NowPlayingActive({
                 </div>
               </div>
 
-              <div className="mt-7 grid max-w-md grid-cols-3 items-center gap-2 sm:mt-8">
+              <div className="mt-7 flex max-w-md items-center gap-2 sm:mt-8">
                 <button
                   type="button"
                   onClick={handlePrevious}
@@ -504,31 +537,39 @@ function NowPlayingActive({
                       ? 'Previous track'
                       : 'No previous track yet — skip or finish a song first'
                   }
-                  className="justify-self-start flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
                   aria-label="Previous track"
                 >
-                  ⏮
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <rect x="2" y="2" width="2" height="12" rx="1" />
+                    <path d="M13 2L5 8L13 14V2Z" />
+                  </svg>
                 </button>
 
                 <button
                   type="button"
                   onClick={togglePlayPause}
-                  className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16"
                   aria-label={showPlaying ? 'Pause' : 'Play'}
                 >
-                  {showPlaying ? '⏸' : '▶'}
+                  {showPlaying ? <PauseIcon /> : <PlayIcon />}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  disabled={!skipEnabled}
-                  title={skipTitle}
-                  className="justify-self-end flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
-                  aria-label="Skip forward"
-                >
-                  ⏭
-                </button>
+                {isHost && (
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={!skipEnabled}
+                    title={skipTitle}
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                    aria-label="Skip song"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <path d="M3 2L11 8L3 14V2Z" />
+                      <rect x="12" y="2" width="2" height="12" rx="1" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -141,6 +141,7 @@ export default function Room() {
     )
   }
 
+  const isHost = Boolean(room?.hostId && userId === room.hostId)
   const unvotedQueue = queueSorted.filter((s) => !getMyVote(s.id))
 
   return (
@@ -207,6 +208,7 @@ export default function Room() {
               onPrevious={onPreviousTrack}
               canPrevious={Boolean(room.previousTrack?.videoId)}
               hasNextInQueue={queueSorted.length > 0}
+              isHost={isHost}
             />
             <UserList users={room.users} />
             <HallOfShame users={room.users} />

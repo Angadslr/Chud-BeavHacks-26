@@ -36,7 +36,7 @@ export default function Landing() {
     setBusy(true)
     try {
       const code = await uniqueRoomCode()
-      await createRoom(code)
+      await createRoom(code, getUserId())
       navigate(`/room/${code}`)
     } catch (e) {
       console.error(e)
@@ -75,15 +75,12 @@ export default function Landing() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-gradient-to-b from-[#0d0d0f] via-[#121214] to-[#0a0a0c] px-4 py-12">
       <div className="w-full max-w-md text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.35em] text-aux-mint/90">
-          Shared jukebox
-        </p>
-        <h1 className="mt-3 text-5xl font-black tracking-tight text-white sm:text-6xl">
-          Aux Wars
+        <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl">
+          No Skip
         </h1>
-        <p className="mt-3 text-lg text-white/55">May the best song win</p>
 
         <div className="mt-10 rounded-2xl border border-aux-border bg-aux-surface/60 p-6 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
+          {/* Display name */}
           <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
             Display name
           </label>
@@ -94,44 +91,50 @@ export default function Landing() {
             className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
           />
 
+          {/* Room code */}
+          <label className="mt-5 block text-xs font-semibold uppercase tracking-wider text-white/45">
+            Room code
+          </label>
+          <input
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === 'Enter' && onJoin()}
+            placeholder="e.g. X7K2M9"
+            maxLength={8}
+            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 font-mono text-lg tracking-widest text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+          />
+
           {err && (
             <p className="mt-3 text-sm text-aux-coral" role="alert">
               {err}
             </p>
           )}
 
+          {/* Primary action — join */}
           <button
             type="button"
-            onClick={onCreate}
+            onClick={onJoin}
             disabled={busy}
-            className="mt-6 w-full rounded-xl bg-aux-mint py-3.5 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
+            className="mt-3 w-full rounded-xl bg-aux-mint py-3.5 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
           >
-            {busy ? 'Working…' : 'Create room'}
+            {busy ? 'Working…' : 'Join room'}
           </button>
 
+          {/* Separator */}
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/10" />
             <span className="text-xs uppercase tracking-wider text-white/35">or</span>
             <div className="h-px flex-1 bg-white/10" />
           </div>
 
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
-            Room code
-          </label>
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="e.g. X7K2M9"
-            maxLength={8}
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 font-mono text-lg tracking-widest text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
-          />
+          {/* Secondary action — create */}
           <button
             type="button"
-            onClick={onJoin}
+            onClick={onCreate}
             disabled={busy}
-            className="mt-3 w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+            className="w-full rounded-xl border border-white/20 bg-transparent py-3 text-sm font-medium text-white/65 hover:bg-white/5 hover:text-white/90 disabled:opacity-50"
           >
-            Join room
+            {busy ? 'Working…' : 'Create a new room'}
           </button>
         </div>
       </div>

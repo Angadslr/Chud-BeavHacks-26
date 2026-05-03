@@ -22,8 +22,6 @@ function displayAddedBy(song) {
 }
 
 function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
-  console.log('[SwipeCard] full song from Firebase', song)
-
   const [dragX, setDragX] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [flyDir, setFlyDir] = useState(null)
@@ -82,15 +80,6 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
     [dragging, triggerFly],
   )
 
-  useEffect(() => {
-    if (showTextSkeleton) {
-      console.warn(
-        '[SwipeCard] queue item has videoId but empty title and artist (metadata may still be loading or data is incomplete)',
-        song,
-      )
-    }
-  }, [showTextSkeleton, song])
-
   let transform, transition
   if (flyDir === 'right') {
     transform = 'translateX(150vw) rotate(25deg)'
@@ -125,10 +114,7 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
   const downPct = total > 0 ? (down / total) * 100 : 50
   const upPct = total > 0 ? (up / total) * 100 : 50
 
-  if (!hasVideoId) {
-    console.warn('[SwipeCard] malformed queue item — missing videoId, not rendering card', song)
-    return null
-  }
+  if (!hasVideoId) return null
 
   return (
     <div
@@ -225,13 +211,7 @@ export default function SwipeStack({ items = [], onVote }) {
   const [dismissed, setDismissed] = useState(new Set())
 
   const eligibleItems = useMemo(() => {
-    return (items || []).filter((s) => {
-      if (!s?.videoId) {
-        console.warn('[SwipeStack] skipping queue item without videoId', s)
-        return false
-      }
-      return true
-    })
+    return (items || []).filter((s) => Boolean(s?.videoId))
   }, [items])
 
   useEffect(() => {
