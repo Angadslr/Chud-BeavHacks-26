@@ -396,22 +396,34 @@ export default function SearchModal({
     setStaged((prev) => prev.filter((s) => s.stagedId !== stagedId))
   }, [])
 
-  const updateHoverIndexFromY = useCallback((clientY, thresholdFactor = 0.5) => {
+  const updateHoverIndexFromY = useCallback((clientY) => {
     const list = listRef.current
     if (!list) return null
     const rows = Array.from(list.querySelectorAll('.queue-item'))
     if (rows.length === 0) return null
-    let nextHover = rows.length
+
+    // Use offsetTop + offsetHeight (natural layout positions) instead of
+    // getBoundingClientRect() — getBoundingClientRect reflects CSS transforms,
+    // so once sibling items are shifted by shouldShiftUp/shouldShiftDown the
+    // reported rects are wrong and hover index jumps to end-of-list.
+    const listTop = list.getBoundingClientRect().top
+    const scrollTop = list.scrollTop
+
+    let nextHover = rows.length // default: after all items
     for (const row of rows) {
-      const rect = row.getBoundingClientRect()
       const idx = Number(row.getAttribute('data-queue-index'))
       if (Number.isNaN(idx)) continue
-      const midpoint = rect.top + rect.height * thresholdFactor
+      // Skip the dragged item — its offsetTop is at its original position but
+      // its visual position follows the pointer, which would corrupt hit-testing.
+      if (idx === dragIndex.current) continue
+      const rowTopViewport = listTop + row.offsetTop - scrollTop
+      const midpoint = rowTopViewport + row.offsetHeight * 0.5
       if (clientY < midpoint) {
         nextHover = idx
         break
       }
     }
+
     if (hoverIndex.current !== nextHover) {
       hoverIndex.current = nextHover
       setHoverIndexState(nextHover)
@@ -448,7 +460,8 @@ export default function SearchModal({
       setStaged((prev) => {
         const next = [...prev]
         const [moved] = next.splice(from, 1)
-        next.splice(to, 0, moved)
+        const insertAt = to > from ? to - 1 : to
+        next.splice(insertAt, 0, moved)
         return next
       })
     }
@@ -490,9 +503,7 @@ export default function SearchModal({
       if (!draggedRowRef.current || dragIndex.current === null) return
       e.preventDefault()
       const clientY = e.clientY
-      if (Math.abs(clientY - dragStartYRef.current) > 8) {
-        updateHoverIndexFromY(clientY, 0.6)
-      }
+      updateHoverIndexFromY(clientY)
       draggedRowRef.current.style.transform =
         `translateY(${clientY - dragStartYRef.current}px) scale(1.03)`
     }
@@ -707,7 +718,7 @@ export default function SearchModal({
                   draggingIndexState !== null &&
                   hoverIndexState !== null &&
                   idx > draggingIndexState &&
-                  idx <= hoverIndexState
+                  idx < hoverIndexState
                 return (
                 <Fragment key={song.stagedId}>
                 {draggingIndexState !== null && hoverIndexState === idx ? (
