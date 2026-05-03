@@ -1,12 +1,39 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 
 const SWIPE_THRESHOLD = 80
 
+const BAR_TRANSITION = 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+
+/** Match NowPlaying.jsx: read `title` and `artist` only (Firebase queue shape). */
+function displayTitle(song) {
+  if (song?.title == null) return ''
+  return String(song.title).trim()
+}
+
+function displayArtist(song) {
+  if (song?.artist == null) return ''
+  return String(song.artist).trim()
+}
+
+function displayAddedBy(song) {
+  if (song?.addedBy == null) return ''
+  const s = String(song.addedBy).trim()
+  return s
+}
+
 function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
+  console.log('[SwipeCard] full song from Firebase', song)
+
   const [dragX, setDragX] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [flyDir, setFlyDir] = useState(null)
   const startXRef = useRef(null)
+
+  const titleText = displayTitle(song)
+  const artistText = displayArtist(song)
+  const addedByLine = displayAddedBy(song)
+  const hasVideoId = Boolean(song?.videoId)
+  const showTextSkeleton = !titleText && !artistText && hasVideoId
 
   const vibeRatio = Math.min(1, Math.max(0, dragX / SWIPE_THRESHOLD))
   const skipRatio = Math.min(1, Math.max(0, -dragX / SWIPE_THRESHOLD))
@@ -55,7 +82,15 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
     [dragging, triggerFly],
   )
 
-  // Build transform and transition
+  useEffect(() => {
+    if (showTextSkeleton) {
+      console.warn(
+        '[SwipeCard] queue item has videoId but empty title and artist (metadata may still be loading or data is incomplete)',
+        song,
+      )
+    }
+  }, [showTextSkeleton, song])
+
   let transform, transition
   if (flyDir === 'right') {
     transform = 'translateX(150vw) rotate(25deg)'
@@ -84,7 +119,16 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
         ? `0 0 ${40 * skipRatio}px rgba(255,68,88,${0.45 * skipRatio}), 0 20px 40px rgba(0,0,0,0.45)`
         : '0 20px 40px rgba(0,0,0,0.45)'
 
-  const net = song.netScore ?? 0
+  const up = song.upvotes ?? 0
+  const down = song.downvotes ?? 0
+  const total = up + down
+  const downPct = total > 0 ? (down / total) * 100 : 50
+  const upPct = total > 0 ? (up / total) * 100 : 50
+
+  if (!hasVideoId) {
+    console.warn('[SwipeCard] malformed queue item — missing videoId, not rendering card', song)
+    return null
+  }
 
   return (
     <div
@@ -101,83 +145,77 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
           boxShadow,
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
-        className="relative flex h-full flex-col overflow-hidden rounded-2xl border-2 bg-[#1a1a1d]"
+        className="relative h-full min-h-[65vh] w-full overflow-hidden rounded-[20px] border-2 bg-[#0a0a0c]"
       >
-        {/* VIBE stamp */}
+        <img
+          src={song.thumbnail || ''}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+        />
+
+        {/* Bottom fade: transparent → dark — sits behind text only (no box) */}
         <div
-          style={{ opacity: vibeRatio, transition: 'opacity 0.15s ease' }}
-          className="pointer-events-none absolute left-4 top-5 z-10 -rotate-12 rounded-lg border-4 border-aux-mint px-3 py-1 font-black text-2xl uppercase text-aux-mint"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[21] h-[45%] bg-gradient-to-t from-[rgba(0,0,0,0.85)] to-transparent"
           aria-hidden
-        >
-          VIBE
-        </div>
+        />
 
-        {/* SKIP stamp */}
-        <div
-          style={{ opacity: skipRatio, transition: 'opacity 0.15s ease' }}
-          className="pointer-events-none absolute right-4 top-5 z-10 rotate-12 rounded-lg border-4 border-aux-coral px-3 py-1 font-black text-2xl uppercase text-aux-coral"
-          aria-hidden
-        >
-          SKIP
-        </div>
-
-        <div className="flex flex-1 flex-col p-4 pb-24">
-          <img
-            src={song.thumbnail}
-            alt=""
-            draggable={false}
-            className="aspect-video w-full rounded-xl object-cover"
-          />
-          <div className="mt-4 min-w-0 flex-1">
-            <p className="line-clamp-2 text-lg font-bold leading-tight text-white">
-              {song.title}
-            </p>
-            <p className="mt-1 truncate text-sm text-white/50">{song.artist}</p>
-            <p className="mt-1 text-xs text-white/30">
-              by {song.addedBy || 'anon'}
-            </p>
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`text-sm font-semibold ${net > 0 ? 'text-aux-mint' : net < 0 ? 'text-aux-coral' : 'text-white/50'}`}
-            >
-              {net > 0 ? '+' : ''}
-              {net}
-            </span>
-            <span className="text-[11px] text-white/30">
-              👍 {song.upvotes ?? 0} · 👎 {song.downvotes ?? 0}
-            </span>
+        {/* Title / artist / added by — anchored bottom (bottom ~25% zone), 16px inset; extra pb clears vibe bar */}
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[22] box-border p-4 pb-28 text-left">
+          <div className="flex min-h-0 flex-col justify-end">
+            {showTextSkeleton ? (
+              <div className="space-y-2" role="status" aria-label="Loading song details">
+                <div className="h-8 w-[90%] max-w-md animate-pulse bg-white/25" />
+                <div className="h-4 w-[55%] max-w-sm animate-pulse bg-white/20" />
+              </div>
+            ) : (
+              <>
+                <p className="line-clamp-3 break-words text-2xl font-bold leading-tight text-white sm:text-3xl">
+                  {song.title ?? ''}
+                </p>
+                {(song.artist ?? '') !== '' ? (
+                  <p className="mt-1 line-clamp-2 break-words text-sm text-white/75 sm:text-base">
+                    {song.artist ?? ''}
+                  </p>
+                ) : null}
+                {addedByLine ? (
+                  <p
+                    className="mt-1.5 text-[12px] leading-snug"
+                    style={{ color: 'rgba(255,255,255,0.5)' }}
+                  >
+                    added by {addedByLine}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
 
-        {isTop && (
-          <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-10 bg-gradient-to-t from-[#1a1a1d] to-transparent pb-5 pt-4">
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation()
-                triggerFly('left')
+        <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-30">
+          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-black/40">
+            <div
+              className="h-full bg-aux-coral"
+              style={{
+                width: `${downPct}%`,
+                transition: BAR_TRANSITION,
               }}
-              className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-aux-coral bg-aux-coral/15 text-2xl transition-colors hover:bg-aux-coral/30 active:scale-95"
-              aria-label="Skip this song"
-            >
-              👎
-            </button>
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation()
-                triggerFly('right')
+            />
+            <div
+              className="h-full bg-aux-mint"
+              style={{
+                width: `${upPct}%`,
+                transition: BAR_TRANSITION,
               }}
-              className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-aux-mint bg-aux-mint/15 text-2xl transition-colors hover:bg-aux-mint/30 active:scale-95"
-              aria-label="Vibe this song"
-            >
-              👍
-            </button>
+            />
           </div>
-        )}
+        </div>
+
+        <div className="pointer-events-none absolute bottom-14 left-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-aux-coral backdrop-blur-sm">
+          👎 {down}
+        </div>
+        <div className="pointer-events-none absolute bottom-14 right-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-aux-mint backdrop-blur-sm">
+          👍 {up}
+        </div>
       </div>
     </div>
   )
@@ -186,20 +224,31 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
 export default function SwipeStack({ items = [], onVote }) {
   const [dismissed, setDismissed] = useState(new Set())
 
-  // Clean up dismissed ids when queue changes from Firebase
-  useEffect(() => {
-    if (!items.length) return
-    const currentIds = new Set(items.map((i) => i.id))
-    setDismissed((prev) => {
-      const cleaned = new Set()
-      for (const id of prev) {
-        if (currentIds.has(id)) cleaned.add(id)
+  const eligibleItems = useMemo(() => {
+    return (items || []).filter((s) => {
+      if (!s?.videoId) {
+        console.warn('[SwipeStack] skipping queue item without videoId', s)
+        return false
       }
-      return cleaned.size === prev.size ? prev : cleaned
+      return true
     })
   }, [items])
 
-  const visible = items.filter((s) => !dismissed.has(s.id)).slice(0, 3)
+  useEffect(() => {
+    if (!eligibleItems.length) return
+    const currentIds = new Set(eligibleItems.map((i) => i.id))
+    queueMicrotask(() => {
+      setDismissed((prev) => {
+        const cleaned = new Set()
+        for (const id of prev) {
+          if (currentIds.has(id)) cleaned.add(id)
+        }
+        return cleaned.size === prev.size ? prev : cleaned
+      })
+    })
+  }, [eligibleItems])
+
+  const visible = eligibleItems.filter((s) => !dismissed.has(s.id)).slice(0, 3)
 
   const handleVibe = useCallback(
     (songId) => {
@@ -219,11 +268,13 @@ export default function SwipeStack({ items = [], onVote }) {
 
   if (!visible.length) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-2xl border border-aux-border bg-aux-surface/80">
+      <div className="flex min-h-[30vh] items-center justify-center rounded-[20px] border border-aux-border bg-aux-surface/80">
         <p className="text-sm text-white/40">
-          {items.length === 0
-            ? 'No songs in queue'
-            : "You've voted on everything!"}
+          {eligibleItems.length === 0 && items.length > 0
+            ? 'No valid songs in queue'
+            : items.length === 0
+              ? 'No songs in queue'
+              : "You've voted on everything!"}
         </p>
       </div>
     )
@@ -240,7 +291,10 @@ export default function SwipeStack({ items = [], onVote }) {
         </span>
       </div>
 
-      <div className="relative" style={{ height: 400 }}>
+      <div
+        className="relative mx-auto w-full max-w-md"
+        style={{ minHeight: '65vh', height: '65vh' }}
+      >
         {[...visible].reverse().map((song, revIdx) => {
           const stackIdx = visible.length - 1 - revIdx
           const isTop = stackIdx === 0
@@ -272,10 +326,6 @@ export default function SwipeStack({ items = [], onVote }) {
           )
         })}
       </div>
-
-      <p className="text-center text-xs text-white/25">
-        Swipe right to vibe · swipe left to skip
-      </p>
     </div>
   )
 }

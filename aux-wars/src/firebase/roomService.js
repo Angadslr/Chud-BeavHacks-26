@@ -100,6 +100,14 @@ export async function addSong(roomId, payload) {
   return newRef.key
 }
 
+/** Shallow-merge fields on one queue item (e.g. upgrade thumbnail after async cover lookup). */
+export async function patchQueueSong(roomId, queueItemKey, patch) {
+  if (!queueItemKey || !patch || typeof patch !== 'object') return
+  const songRef = ref(requireDb(), `rooms/${roomId}/queue/${queueItemKey}`)
+  await update(songRef, patch)
+  await update(ref(requireDb(), `rooms/${roomId}`), { lastActivityAt: Date.now() })
+}
+
 function deriveNetScore(song) {
   if (song == null) return 0
   if (song.netScore != null) return song.netScore
@@ -183,9 +191,9 @@ function nowPlayingFromQueueSong(song, queueItemId) {
   const down = song.downvotes ?? 0
   return {
     videoId: song.videoId,
-    title: song.title,
+    title: song.title != null ? String(song.title) : '',
     thumbnail: song.thumbnail,
-    artist: song.artist,
+    artist: song.artist != null ? String(song.artist) : '',
     addedBy: song.addedBy ?? '',
     queueItemId,
     upvotes: up,

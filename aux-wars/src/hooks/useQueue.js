@@ -25,9 +25,15 @@ export function useQueue(queue) {
       const downvotes = song.downvotes || 0
       const netScore = deriveNetScore(song)
       const totalVotes = deriveTotalVotes(song)
+      // Same canonical fields as `nowPlayingFromQueueSong` / NowPlaying.jsx — title & artist from Firebase
+      const title = song.title != null ? String(song.title) : ''
+      const artist = song.artist != null ? String(song.artist) : ''
+      // `id` after spread so the Realtime DB push key always wins over any stray `id` field on the node
       return {
-        id,
         ...song,
+        id,
+        title,
+        artist,
         upvotes,
         downvotes,
         netScore,

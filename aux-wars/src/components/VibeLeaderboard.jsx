@@ -13,11 +13,19 @@ function formatVibe(n) {
   return String(n)
 }
 
-function likeRatioPercent(upvotes, downvotes) {
-  const total = (upvotes || 0) + (downvotes || 0)
-  if (total <= 0) return 50
-  return (upvotes / total) * 100
+/** Left segment = downvotes share, right = upvotes; meet at center when 50/50. */
+function splitBarPercents(upvotes, downvotes) {
+  const up = upvotes || 0
+  const down = downvotes || 0
+  const total = up + down
+  if (total <= 0) return { downPct: 50, upPct: 50 }
+  return {
+    downPct: (down / total) * 100,
+    upPct: (up / total) * 100,
+  }
 }
+
+const VIBE_BAR_TRANSITION = 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
 
 export default function VibeLeaderboard({
   items,
@@ -103,7 +111,7 @@ export default function VibeLeaderboard({
           const isUpNext = rank === 1
           const up = song.upvotes || 0
           const down = song.downvotes || 0
-          const ratio = likeRatioPercent(up, down)
+          const { downPct, upPct } = splitBarPercents(up, down)
           const net = song.netScore ?? 0
 
           return (
@@ -169,44 +177,50 @@ export default function VibeLeaderboard({
                     👍 {up} · 👎 {down}
                   </span>
                 </div>
-                <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="flex h-2.5 w-full flex-row overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full bg-aux-mint transition-[width] duration-300 ease-out"
-                    style={{ width: `${ratio}%` }}
+                    className="h-full shrink-0 bg-aux-coral"
+                    style={{
+                      width: `${downPct}%`,
+                      transition: VIBE_BAR_TRANSITION,
+                    }}
                   />
                   <div
-                    className="h-full bg-aux-coral/90 transition-[width] duration-300 ease-out"
-                    style={{ width: `${100 - ratio}%` }}
+                    className="h-full shrink-0 bg-aux-mint"
+                    style={{
+                      width: `${upPct}%`,
+                      transition: VIBE_BAR_TRANSITION,
+                    }}
                   />
                 </div>
 
                 {onVote && getMyVote && (
-                  <div className="mt-3 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      aria-label="Thumbs up"
-                      aria-pressed={getMyVote(song.id) === 'up'}
-                      onClick={() => onVote(song.id, 'up')}
-                      className={`flex h-10 min-w-[3.25rem] items-center justify-center rounded-xl border text-lg transition-colors ${
-                        getMyVote(song.id) === 'up'
-                          ? 'border-aux-mint bg-aux-mint/25 text-aux-mint shadow-[0_0_16px_rgba(30,215,96,0.25)]'
-                          : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-mint/40 hover:bg-aux-mint/10'
-                      }`}
-                    >
-                      👍
-                    </button>
+                  <div className="mt-3 flex w-full items-center justify-between gap-3">
                     <button
                       type="button"
                       aria-label="Thumbs down"
                       aria-pressed={getMyVote(song.id) === 'down'}
                       onClick={() => onVote(song.id, 'down')}
-                      className={`flex h-10 min-w-[3.25rem] items-center justify-center rounded-xl border text-lg transition-colors ${
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-lg transition-colors ${
                         getMyVote(song.id) === 'down'
                           ? 'border-aux-coral bg-aux-coral/25 text-aux-coral shadow-[0_0_16px_rgba(255,68,88,0.2)]'
                           : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-coral/40 hover:bg-aux-coral/10'
                       }`}
                     >
                       👎
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Thumbs up"
+                      aria-pressed={getMyVote(song.id) === 'up'}
+                      onClick={() => onVote(song.id, 'up')}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-lg transition-colors ${
+                        getMyVote(song.id) === 'up'
+                          ? 'border-aux-mint bg-aux-mint/25 text-aux-mint shadow-[0_0_16px_rgba(30,215,96,0.25)]'
+                          : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-mint/40 hover:bg-aux-mint/10'
+                      }`}
+                    >
+                      👍
                     </button>
                   </div>
                 )}

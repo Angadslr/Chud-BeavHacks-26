@@ -31,9 +31,6 @@ export default function Queue({ items, emptyHint = 'Add songs to start the battl
           </div>
           <div className="shrink-0 text-right">
             <p className="text-lg font-bold text-aux-mint">{song.netScore ?? 0}</p>
-            <p className="text-[10px] uppercase tracking-wider text-white/40">
-              vibe
-            </p>
           </div>
         </li>
       ))}
