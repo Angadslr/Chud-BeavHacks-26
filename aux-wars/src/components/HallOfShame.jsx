@@ -22,14 +22,14 @@ export default function HallOfShame({ users, queue = [] }) {
 
   if (!ranked.length) {
     return (
-      <div className="rounded-xl border border-dashed border-white/15 bg-black/20 px-3 py-3 text-left text-xs text-white/45">
+      <div className="w-full overflow-hidden rounded-xl border border-dashed border-white/15 bg-black/20 px-3 py-3 text-left text-xs text-white/45">
         Hall of Shame: no downvote drama yet.
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-aux-coral/30 bg-aux-coral/5 px-3 py-3 text-left">
+    <div className="w-full overflow-hidden rounded-xl border border-aux-coral/30 bg-aux-coral/5 px-3 py-3 text-left">
       <p className="text-xs font-semibold uppercase tracking-wider text-aux-coral">
         Hall of Shame
       </p>

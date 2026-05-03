@@ -257,7 +257,7 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
 
     return (
       <div
-        className={`flex min-h-[30vh] flex-col items-center justify-center gap-3 rounded-[20px] border border-aux-border bg-aux-surface/80 transition-colors ${
+        className={`flex w-full min-h-[30vh] flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] border border-aux-border bg-aux-surface/80 transition-colors ${
           isAddable ? 'cursor-pointer hover:bg-aux-surface active:bg-aux-surface/60' : ''
         }`}
         onClick={isAddable ? onAddSong : undefined}

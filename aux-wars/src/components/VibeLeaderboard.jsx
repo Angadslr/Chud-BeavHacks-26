@@ -151,9 +151,11 @@ export default function VibeLeaderboard({
                   <p className="mt-0.5 line-clamp-1 text-xs text-white/50">
                     {song.artist}
                   </p>
-                  <p className="mt-1 text-[11px] text-white/35">
-                    by {song.addedBy || 'anon'}
-                  </p>
+                  {song.addedBy && song.addedBy !== 'anon' && (
+                    <p className="mt-1 text-[11px] text-white/35">
+                      by {song.addedBy}
+                    </p>
+                  )}
                 </div>
               </div>
 

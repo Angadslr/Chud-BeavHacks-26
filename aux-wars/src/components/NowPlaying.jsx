@@ -531,20 +531,21 @@ function NowPlayingActive({
 
   return (
     <>
-      {/* Hidden YouTube iframe — audio source */}
+      {/* Hidden YouTube iframe — audio source; use transform not negative left to avoid mobile scroll-width bugs */}
       <div
         ref={hostRef}
-        className="pointer-events-none fixed -left-[9999px] bottom-0 h-[180px] w-[320px] opacity-[0.02]"
+        className="pointer-events-none fixed bottom-0 left-0 h-[180px] w-[320px] opacity-[0.02]"
+        style={{ transform: 'translateX(-9999px)' }}
         aria-hidden
       />
 
       {/* Mobile mini-player (< sm) */}
-      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
+      <div className="flex w-full max-w-full items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
           <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <p className="max-w-full truncate whitespace-nowrap text-sm font-semibold text-white">
             {nowPlaying.title}
           </p>
           <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>

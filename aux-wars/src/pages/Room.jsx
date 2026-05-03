@@ -74,21 +74,25 @@ export default function Room() {
     }
   }, [room, loading, userId, navigate])
 
+  // Only the host should trigger queue advances — prevents all guests from
+  // racing to write Firebase when the song ends or on initial idle load.
   useEffect(() => {
     if (!roomId || !room) return
+    if (userId !== room?.hostId) return
     const np = room.nowPlaying
     const hasQueue = queueSorted.length > 0
     if (!np?.videoId && hasQueue) {
       advanceToNextSong(roomId, null).catch(console.error)
     }
-  }, [roomId, room, queueSorted.length])
+  }, [roomId, room, queueSorted.length, userId])
 
   const onEnded = useCallback(
     (videoId) => {
       if (!roomId || !videoId) return
+      if (userId !== room?.hostId) return  // only host advances the queue
       advanceToNextSong(roomId, videoId).catch(console.error)
     },
-    [roomId],
+    [roomId, userId, room?.hostId],
   )
 
   const onSkipTrack = useCallback(() => {
@@ -241,7 +245,7 @@ export default function Room() {
 
           <div className="space-y-4">
             {/* Mobile tab switcher — Swipe vs List */}
-            <div className="flex rounded-xl border border-aux-border bg-black/25 p-1 lg:hidden">
+            <div className="flex w-full rounded-xl border border-aux-border bg-black/25 p-1 lg:hidden">
               <button
                 type="button"
                 onClick={() => setVoteTab('swipe')}
