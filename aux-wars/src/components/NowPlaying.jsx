@@ -303,7 +303,7 @@ function NowPlayingActive({
   }, [prevEnabled, onPrevious])
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-700/40 bg-gradient-to-b from-[#0a1224] via-[#060d18] to-black shadow-2xl shadow-black/60">
       <div
         ref={hostRef}
         className="pointer-events-none fixed -left-[9999px] bottom-0 h-[180px] w-[320px] opacity-[0.02]"
@@ -326,7 +326,7 @@ function NowPlayingActive({
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
           <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
             <div
-              className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"
+              className="absolute -inset-2 rounded-3xl bg-white/6 blur-2xl"
               aria-hidden
             />
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
@@ -422,7 +422,7 @@ function NowPlayingActive({
               <button
                 type="button"
                 onClick={togglePlayPause}
-                className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
+                className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-aux-mint text-lg font-semibold text-[#0a1224] shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
                 aria-label={showPlaying ? 'Pause' : 'Play'}
               >
                 {showPlaying ? '⏸' : '▶'}
@@ -450,7 +450,7 @@ export default function NowPlaying(props) {
   const videoId = props.nowPlaying?.videoId
   if (!videoId) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1c1c1f] to-[#0d0d0f] shadow-xl shadow-black/50">
+      <div className="overflow-hidden rounded-2xl border border-slate-700/40 bg-gradient-to-b from-[#0a1224] to-black shadow-xl shadow-black/50">
         <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
           <div className="mb-4 flex h-28 w-28 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
             <span className="text-4xl opacity-40" aria-hidden>

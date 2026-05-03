@@ -12,7 +12,7 @@ const fallbackStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#0d0d0f',
+  background: '#000000',
   color: '#e8e8ed',
   fontFamily: 'system-ui, sans-serif',
 }

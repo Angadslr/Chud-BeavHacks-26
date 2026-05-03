@@ -112,7 +112,7 @@ export default function VibeLeaderboard({
               data-song-id={song.id}
               className={`rounded-2xl border px-3 py-3 text-left shadow-lg transition-shadow duration-300 ${
                 isUpNext
-                  ? 'border-aux-mint/70 bg-aux-mint/10 shadow-[0_0_24px_rgba(30,215,96,0.2)] ring-1 ring-aux-mint/30'
+                  ? 'border-aux-mint/50 bg-aux-mint/10 shadow-[0_0_24px_rgba(226,232,240,0.1)] ring-1 ring-aux-mint/25'
                   : 'border-aux-border bg-aux-surface/90 shadow-black/20'
               }`}
             >
@@ -189,8 +189,8 @@ export default function VibeLeaderboard({
                       onClick={() => onVote(song.id, 'up')}
                       className={`flex h-10 min-w-[3.25rem] items-center justify-center rounded-xl border text-lg transition-colors ${
                         getMyVote(song.id) === 'up'
-                          ? 'border-aux-mint bg-aux-mint/25 text-aux-mint shadow-[0_0_16px_rgba(30,215,96,0.25)]'
-                          : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-mint/40 hover:bg-aux-mint/10'
+                          ? 'border-aux-mint bg-aux-mint/20 text-aux-mint shadow-[0_0_16px_rgba(226,232,240,0.15)]'
+                          : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-mint/35 hover:bg-aux-mint/10'
                       }`}
                     >
                       👍
@@ -202,7 +202,7 @@ export default function VibeLeaderboard({
                       onClick={() => onVote(song.id, 'down')}
                       className={`flex h-10 min-w-[3.25rem] items-center justify-center rounded-xl border text-lg transition-colors ${
                         getMyVote(song.id) === 'down'
-                          ? 'border-aux-coral bg-aux-coral/25 text-aux-coral shadow-[0_0_16px_rgba(255,68,88,0.2)]'
+                          ? 'border-aux-coral bg-aux-coral/25 text-aux-coral shadow-[0_0_16px_rgba(248,113,113,0.2)]'
                           : 'border-white/15 bg-white/5 text-white/70 hover:border-aux-coral/40 hover:bg-aux-coral/10'
                       }`}
                     >

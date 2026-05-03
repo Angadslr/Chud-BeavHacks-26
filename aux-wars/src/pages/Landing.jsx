@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { customAlphabet } from 'nanoid'
 import { createRoom, roomExists } from '../firebase/roomService'
 import { setDisplayName, getDisplayName, getUserId } from '../lib/session'
+import WavySpiralGraphic from '../components/WavySpiralGraphic'
 
 const genRoomCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6)
 
@@ -16,6 +17,9 @@ async function uniqueRoomCode() {
 
 export default function Landing() {
   const navigate = useNavigate()
+  const cardRef = useRef(null)
+  const graphicRef = useRef(null)
+
   const [name, setName] = useState(getDisplayName())
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -73,67 +77,95 @@ export default function Landing() {
   void getUserId()
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-gradient-to-b from-[#0d0d0f] via-[#121214] to-[#0a0a0c] px-4 py-12">
-      <div className="w-full max-w-md text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.35em] text-aux-mint/90">
-          Shared jukebox
-        </p>
-        <h1 className="mt-3 text-5xl font-black tracking-tight text-white sm:text-6xl">
-          Aux Wars
-        </h1>
-        <p className="mt-3 text-lg text-white/55">May the best song win</p>
-
-        <div className="mt-10 rounded-2xl border border-aux-border bg-aux-surface/60 p-6 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
-            Display name
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="How judges see you"
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
-          />
-
-          {err && (
-            <p className="mt-3 text-sm text-aux-coral" role="alert">
-              {err}
+    <div
+      ref={cardRef}
+      className="box-border flex min-h-svh w-full flex-col overflow-hidden bg-aux-surface lg:h-svh lg:min-h-0 lg:flex-row"
+    >
+      {/* Copy + form */}
+      <div className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-y-auto px-5 py-5 sm:gap-4 sm:px-8 sm:py-8 lg:basis-0 lg:flex-1 lg:overflow-visible lg:px-12 lg:py-12 xl:px-16">
+          <div>
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.35em] text-slate-400 sm:text-xs"
+              style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}
+            >
+              Shared jukebox
             </p>
-          )}
-
-          <button
-            type="button"
-            onClick={onCreate}
-            disabled={busy}
-            className="mt-6 w-full rounded-xl bg-aux-mint py-3.5 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
-          >
-            {busy ? 'Working…' : 'Create room'}
-          </button>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs uppercase tracking-wider text-white/35">or</span>
-            <div className="h-px flex-1 bg-white/10" />
+            <h1
+              className="mt-1 text-[clamp(1.85rem,5.5vw,3.25rem)] font-extrabold uppercase leading-[1.05] tracking-[0.06em] text-white"
+              style={{ fontFamily: "'Syne', ui-sans-serif, system-ui, sans-serif" }}
+            >
+              Aux Wars
+            </h1>
+            <p
+              className="mt-3 max-w-[22rem] text-[11px] leading-relaxed text-slate-300 sm:text-xs md:text-[13px]"
+              style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+            >
+              {'>'} shared_queue · live_vote · one_room<br />
+              Battle for the aux. May the best song win.
+            </p>
           </div>
 
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
-            Room code
-          </label>
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="e.g. X7K2M9"
-            maxLength={8}
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 font-mono text-lg tracking-widest text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
-          />
-          <button
-            type="button"
-            onClick={onJoin}
-            disabled={busy}
-            className="mt-3 w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50"
-          >
-            Join room
-          </button>
-        </div>
+          <div className="flex min-h-0 flex-col gap-3 lg:gap-3.5">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Display name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="your_handle"
+                className="mt-1 w-full rounded-xl border border-slate-500/50 bg-black/35 px-3 py-2 text-sm font-medium text-white outline-none placeholder:text-slate-500 focus:border-slate-400 sm:py-2.5 sm:text-[15px]"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Room code
+              </label>
+              <input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="JOIN_CODE"
+                maxLength={8}
+                className="mt-1 w-full rounded-xl border border-slate-500/50 bg-black/35 px-3 py-2 font-mono text-sm font-semibold uppercase tracking-[0.18em] text-white outline-none placeholder:text-slate-500 focus:border-slate-400 sm:py-2.5 sm:text-base"
+              />
+            </div>
+
+            {err && (
+              <p className="text-xs font-medium text-white" role="alert">
+                {err}
+              </p>
+            )}
+
+            {/* Both primary actions on one row — fits above the fold */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1 sm:gap-3">
+              <button
+                type="button"
+                onClick={onCreate}
+                disabled={busy}
+                className="rounded-full bg-black px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-black/40 ring-1 ring-white/10 transition hover:bg-zinc-950 disabled:opacity-50 sm:text-xs sm:py-3"
+              >
+                {busy ? '…' : 'Create'}
+              </button>
+              <button
+                type="button"
+                onClick={onJoin}
+                disabled={busy}
+                className="rounded-full border-2 border-slate-400 bg-transparent px-3 py-2.5 text-center text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-slate-800/60 disabled:opacity-50 sm:text-xs sm:py-3"
+              >
+                Join
+              </button>
+            </div>
+          </div>
+      </div>
+
+      {/* Wavy ribbon */}
+      <div
+        ref={graphicRef}
+        className="relative min-h-[22vh] shrink-0 sm:min-h-[26vh] lg:min-h-0 lg:flex-1 lg:basis-0 lg:shrink"
+      >
+        <WavySpiralGraphic pointerRef={cardRef} sizeRef={graphicRef} lineTone="slate" />
       </div>
     </div>
   )

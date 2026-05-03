@@ -2,13 +2,15 @@
 
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-aux-bg: #0d0d0f;
-  --color-aux-surface: #161618;
-  --color-aux-border: #2a2a2e;
-  --color-aux-mint: #1ed760;
-  --color-aux-coral: #ff4458;
-  --color-aux-glow-green: rgba(30, 215, 96, 0.35);
-  --color-aux-glow-red: rgba(255, 68, 88, 0.35);
+  /* Navy / black / white / slate — matches landing */
+  --color-aux-bg: #000000;
+  --color-aux-surface: #0a1224;
+  --color-aux-border: #334155;
+  /* Primary accent (buttons, upvotes, highlights) — light slate, was mint green */
+  --color-aux-mint: #e2e8f0;
+  --color-aux-coral: #f87171;
+  --color-aux-glow-light: rgba(226, 232, 240, 0.15);
+  --color-aux-glow-red: rgba(248, 113, 113, 0.22);
 }
 
 body {

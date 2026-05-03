@@ -99,7 +99,7 @@ export default function Room() {
         particleCount: 90,
         spread: 70,
         origin: { y: 0.35 },
-        colors: ['#1ed760', '#ffffff', '#c084fc'],
+        colors: ['#e2e8f0', '#ffffff', '#94a3b8'],
       })
     }
     prevVideoRef.current = v
@@ -122,7 +122,7 @@ export default function Room() {
         <p className="text-white/70">Set your display name on the home page first.</p>
         <Link
           to="/"
-          className="rounded-xl bg-aux-mint px-6 py-3 font-semibold text-black"
+          className="rounded-xl bg-aux-mint px-6 py-3 font-semibold text-[#0a1224]"
         >
           Go back
         </Link>
@@ -139,14 +139,14 @@ export default function Room() {
   }
 
   return (
-    <div className="min-h-svh bg-gradient-to-b from-aux-bg via-[#101012] to-aux-bg">
-      <header className="sticky top-0 z-20 border-b border-aux-border bg-[#0d0d0f]/90 px-4 py-3 backdrop-blur-md">
+    <div className="min-h-svh bg-black">
+      <header className="sticky top-0 z-20 border-b border-slate-700/60 bg-[#0a1224]/95 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-sm font-semibold text-white/50 hover:text-white">
               ← Home
             </Link>
-            <div className="h-6 w-px bg-white/15" />
+            <div className="h-6 w-px bg-slate-600/50" />
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
                 Room code
@@ -156,20 +156,23 @@ export default function Room() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={copyLink}
-              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
-            >
-              {copied ? 'Copied!' : 'Copy link'}
-            </button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="rounded-xl bg-aux-mint px-4 py-2 text-sm font-bold text-black hover:brightness-110"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-aux-mint px-5 py-3 text-sm font-extrabold uppercase tracking-[0.08em] text-[#0a1224] shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_6px_28px_rgba(226,232,240,0.28)] ring-2 ring-aux-ice/55 transition hover:brightness-105 active:scale-[0.98] sm:px-7 sm:text-[15px]"
             >
-              Add song
+              <span className="text-xl font-bold leading-none" aria-hidden>
+                +
+              </span>
+              Add songs
+            </button>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="rounded-xl border border-slate-500/40 bg-black/30 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800/50"
+            >
+              {copied ? 'Copied!' : 'Copy link'}
             </button>
           </div>
         </div>
@@ -229,6 +232,7 @@ export default function Room() {
       </main>
 
       <SearchModal
+        key={`${searchOpen ? 'open' : 'closed'}-${roomId}`}
         roomId={roomId}
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
