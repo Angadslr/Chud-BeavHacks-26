@@ -63,7 +63,7 @@ export default function SearchModal({ roomId, open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/25 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label="Add song"
@@ -74,15 +74,15 @@ export default function SearchModal({ roomId, open, onClose }) {
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-aux-border bg-aux-surface shadow-2xl shadow-black/50">
+      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg border border-aux-border bg-aux-elevated shadow-[0_8px_40px_rgba(28,25,23,0.12)]">
         <div className="flex items-center justify-between border-b border-aux-border px-4 py-3">
-          <h2 className="text-lg font-bold text-white">Add a song</h2>
+          <h2 className="font-display text-lg font-semibold text-aux-ink">Add a track</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-white/60 hover:bg-white/10 hover:text-white"
+            className="rounded-md px-2 py-1 text-sm text-aux-fg-muted hover:bg-stone-900/[0.04] hover:text-aux-fg"
           >
-            ✕
+            Close
           </button>
         </div>
         <div className="flex gap-2 border-b border-aux-border p-3">
@@ -90,31 +90,31 @@ export default function SearchModal({ roomId, open, onClose }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && search()}
-            placeholder="Search YouTube…"
-            className="min-w-0 flex-1 rounded-xl border border-aux-border bg-black/30 px-3 py-2.5 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+            placeholder="Search YouTube"
+            className="min-w-0 flex-1 rounded-md border border-aux-border bg-aux-surface px-3 py-2.5 text-[15px] text-aux-fg placeholder:text-aux-fg-subtle focus:border-aux-fg-muted focus:outline-none focus:ring-1 focus:ring-aux-fg-muted/25"
           />
           <button
             type="button"
             onClick={search}
             disabled={loading}
-            className="shrink-0 rounded-xl bg-aux-mint px-4 py-2.5 font-semibold text-black hover:brightness-110 disabled:opacity-50"
+            className="shrink-0 rounded-md bg-aux-ink px-4 py-2.5 text-sm font-semibold text-stone-50 hover:bg-stone-800 disabled:opacity-50"
           >
             {loading ? '…' : 'Search'}
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {error && (
-            <p className="mb-2 rounded-lg bg-aux-coral/15 px-3 py-2 text-sm text-aux-coral">
+            <p className="mb-2 rounded-md border border-red-200/80 bg-red-50/80 px-3 py-2 text-sm text-red-900">
               {error}
             </p>
           )}
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {results.map((item) => (
               <li key={item.id.videoId}>
                 <button
                   type="button"
                   onClick={() => pick(item)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-transparent bg-black/25 p-2 text-left hover:border-aux-mint/40 hover:bg-black/40"
+                  className="flex w-full items-center gap-3 rounded-md border border-transparent p-2 text-left hover:border-aux-border hover:bg-stone-900/[0.03]"
                 >
                   <img
                     src={
@@ -122,13 +122,13 @@ export default function SearchModal({ roomId, open, onClose }) {
                       item.snippet.thumbnails?.default?.url
                     }
                     alt=""
-                    className="h-14 w-[4.5rem] shrink-0 rounded-lg object-cover"
+                    className="h-14 w-[4.5rem] shrink-0 rounded object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="line-clamp-2 font-medium text-white">
+                    <p className="line-clamp-2 text-sm font-medium text-aux-fg">
                       {item.snippet.title}
                     </p>
-                    <p className="truncate text-xs text-white/50">
+                    <p className="truncate text-xs text-aux-fg-muted">
                       {item.snippet.channelTitle}
                     </p>
                   </div>

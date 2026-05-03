@@ -303,7 +303,7 @@ function NowPlayingActive({
   }, [prevEnabled, onPrevious])
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60">
+    <div className="relative overflow-hidden rounded-lg border border-aux-border bg-aux-surface shadow-[0_1px_3px_rgba(28,25,23,0.06)]">
       <div
         ref={hostRef}
         className="pointer-events-none fixed -left-[9999px] bottom-0 h-[180px] w-[320px] opacity-[0.02]"
@@ -311,25 +311,16 @@ function NowPlayingActive({
       />
 
       <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
-        <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
+        <div className="mb-5 flex items-center justify-between gap-3 border-b border-aux-border pb-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">
-              Now playing
-            </p>
-            <p className="mt-0.5 text-[11px] text-white/35">Aux Wars · room</p>
+            <p className="text-xs font-medium text-aux-mint">Now playing</p>
+            <p className="mt-0.5 text-xs text-aux-fg-subtle">YouTube</p>
           </div>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
-            YouTube
-          </span>
         </div>
 
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
           <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
-            <div
-              className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"
-              aria-hidden
-            />
-            <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
+            <div className="relative aspect-square w-full overflow-hidden rounded-md shadow-[0_4px_20px_rgba(28,25,23,0.08)] ring-1 ring-black/5">
               <AlbumCover
                 key={videoId}
                 videoId={videoId}
@@ -347,15 +338,15 @@ function NowPlayingActive({
           </div>
 
           <div className="min-w-0 flex-1 text-left">
-            <h2 className="line-clamp-2 text-pretty text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl">
+            <h2 className="font-display line-clamp-2 text-pretty text-xl font-semibold leading-snug tracking-tight text-aux-ink sm:text-2xl">
               {nowPlaying.title}
             </h2>
-            <p className="mt-1 line-clamp-1 text-sm font-medium text-white/45 sm:text-base">
+            <p className="mt-1 line-clamp-1 text-sm text-aux-fg-muted sm:text-base">
               {nowPlaying.artist}
             </p>
 
             <div className="mt-6">
-              <div className="flex items-center justify-between tabular-nums text-[11px] text-white/40 sm:text-xs">
+              <div className="flex items-center justify-between tabular-nums text-[11px] text-aux-fg-muted sm:text-xs">
                 <span>{formatTime(displayTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
@@ -391,13 +382,13 @@ function NowPlayingActive({
                   }
                 }}
               >
-                <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
+                <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-stone-200" />
                 <div
                   className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
                   style={{ width: `${progressPct}%` }}
                 />
                 <div
-                  className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-md transition-transform ${isScrubbing ? 'scale-110' : 'scale-100'}`}
+                  className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-aux-elevated bg-aux-elevated shadow-sm transition-transform ${isScrubbing ? 'scale-110' : 'scale-100'}`}
                   style={{ left: `${progressPct}%` }}
                 />
               </div>
@@ -413,7 +404,7 @@ function NowPlayingActive({
                     ? 'Previous track'
                     : 'No previous track yet — skip or finish a song first'
                 }
-                className="justify-self-start flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                className="justify-self-start flex h-12 w-12 items-center justify-center rounded-full border border-aux-border bg-aux-elevated text-lg text-aux-fg transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
                 aria-label="Previous track"
               >
                 ⏮
@@ -422,7 +413,7 @@ function NowPlayingActive({
               <button
                 type="button"
                 onClick={togglePlayPause}
-                className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
+                className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-aux-ink text-lg text-stone-50 shadow-md transition-transform hover:bg-stone-800 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
                 aria-label={showPlaying ? 'Pause' : 'Play'}
               >
                 {showPlaying ? '⏸' : '▶'}
@@ -433,7 +424,7 @@ function NowPlayingActive({
                 onClick={handleSkip}
                 disabled={!skipEnabled}
                 title={skipTitle}
-                className="justify-self-end flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                className="justify-self-end flex h-12 w-12 items-center justify-center rounded-full border border-aux-border bg-aux-elevated text-lg text-aux-fg transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
                 aria-label="Skip forward"
               >
                 ⏭
@@ -450,16 +441,16 @@ export default function NowPlaying(props) {
   const videoId = props.nowPlaying?.videoId
   if (!videoId) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1c1c1f] to-[#0d0d0f] shadow-xl shadow-black/50">
+      <div className="overflow-hidden rounded-lg border border-aux-border border-dashed bg-aux-surface/60">
         <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-          <div className="mb-4 flex h-28 w-28 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-            <span className="text-4xl opacity-40" aria-hidden>
-              ♪
-            </span>
-          </div>
-          <p className="text-sm font-medium text-white/45">Nothing playing</p>
-          <p className="mt-1 max-w-[240px] text-xs text-white/30">
-            Add tracks to the queue — the room will pick the next winner automatically.
+          <div
+            className="mb-5 h-px w-12 bg-aux-border"
+            aria-hidden
+          />
+          <p className="text-sm font-medium text-aux-fg-muted">Nothing on yet</p>
+          <p className="mt-2 max-w-[260px] text-sm leading-relaxed text-aux-fg-subtle">
+            Add something to the queue. When a track ends, the next one in line
+            starts.
           </p>
         </div>
       </div>

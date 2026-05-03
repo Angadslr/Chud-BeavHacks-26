@@ -96,10 +96,10 @@ export default function Room() {
     const v = room?.nowPlaying?.videoId
     if (v && prevVideoRef.current !== undefined && prevVideoRef.current !== v) {
       confetti({
-        particleCount: 90,
-        spread: 70,
-        origin: { y: 0.35 },
-        colors: ['#1ed760', '#ffffff', '#c084fc'],
+        particleCount: 55,
+        spread: 58,
+        origin: { y: 0.38 },
+        colors: ['#0f766e', '#ebe6dd', '#b45348', '#fffcf7'],
       })
     }
     prevVideoRef.current = v
@@ -118,13 +118,15 @@ export default function Room() {
 
   if (!displayName.trim()) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-aux-bg px-4">
-        <p className="text-white/70">Set your display name on the home page first.</p>
+      <div className="flex min-h-svh flex-col items-center justify-center gap-5 px-4">
+        <p className="max-w-sm text-center text-aux-fg-muted">
+          Add your name on the home page first.
+        </p>
         <Link
           to="/"
-          className="rounded-xl bg-aux-mint px-6 py-3 font-semibold text-black"
+          className="rounded-md bg-aux-ink px-6 py-2.5 text-sm font-semibold text-stone-50"
         >
-          Go back
+          Back home
         </Link>
       </div>
     )
@@ -132,26 +134,27 @@ export default function Room() {
 
   if (loading || !room) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-aux-bg text-white/50">
-        Loading room…
+      <div className="flex min-h-svh items-center justify-center text-aux-fg-muted">
+        Loading…
       </div>
     )
   }
 
   return (
-    <div className="min-h-svh bg-gradient-to-b from-aux-bg via-[#101012] to-aux-bg">
-      <header className="sticky top-0 z-20 border-b border-aux-border bg-[#0d0d0f]/90 px-4 py-3 backdrop-blur-md">
+    <div className="min-h-svh">
+      <header className="sticky top-0 z-20 border-b border-aux-border bg-aux-surface/90 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm font-semibold text-white/50 hover:text-white">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/"
+              className="text-sm font-medium text-aux-fg-muted hover:text-aux-fg"
+            >
               ← Home
             </Link>
-            <div className="h-6 w-px bg-white/15" />
+            <div className="hidden h-5 w-px bg-aux-border sm:block" />
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                Room code
-              </p>
-              <p className="font-mono text-xl font-bold tracking-[0.2em] text-aux-mint">
+              <p className="text-xs text-aux-fg-subtle">Room</p>
+              <p className="font-mono text-lg font-semibold tracking-[0.18em] text-aux-mint">
                 {roomId}
               </p>
             </div>
@@ -160,38 +163,38 @@ export default function Room() {
             <button
               type="button"
               onClick={copyLink}
-              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+              className="rounded-md border border-aux-border bg-aux-elevated px-3 py-2 text-sm font-medium text-aux-fg shadow-[0_1px_1px_rgba(28,25,23,0.04)] hover:bg-stone-50"
             >
-              {copied ? 'Copied!' : 'Copy link'}
+              {copied ? 'Copied' : 'Copy link'}
             </button>
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="rounded-xl bg-aux-mint px-4 py-2 text-sm font-bold text-black hover:brightness-110"
+              className="rounded-md bg-aux-ink px-3 py-2 text-sm font-semibold text-stone-50 hover:bg-stone-800"
             >
-              Add song
+              Add a song
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-8">
         {toast && (
           <div
-            className="mb-4 rounded-xl border border-aux-coral/40 bg-aux-coral/10 px-4 py-3 text-center text-sm font-medium text-white"
+            className="mb-5 rounded-md border border-aux-border bg-aux-surface px-4 py-3 text-center text-sm text-aux-fg"
             role="status"
           >
             {toast}
           </div>
         )}
         {voteErrorFlash && (
-          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">
-            Couldn&apos;t update vote — try again.
+          <div className="mb-5 rounded-md border border-amber-800/20 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-950">
+            Couldn&apos;t save that vote. Try again.
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+          <div className="space-y-6">
             <NowPlaying
               nowPlaying={room.nowPlaying}
               onEnded={onEnded}
@@ -207,18 +210,18 @@ export default function Room() {
             <HallOfShame users={room.users} />
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <h2 className="mb-2 text-left text-sm font-semibold uppercase tracking-wider text-white/45">
-                Vote on every track
-              </h2>
-              <p className="mb-3 text-left text-xs text-white/40">
-                Thumbs up or down on each song. Change your mind anytime — your
-                latest vote counts.
-              </p>
+          <div>
+            <h2 className="font-display text-xl font-semibold text-aux-ink">
+              The queue
+            </h2>
+            <p className="mt-1 max-w-md text-sm leading-relaxed text-aux-fg-muted">
+              Vote on anything in the list. You can change your vote — it keeps
+              the order honest.
+            </p>
+            <div className="mt-6">
               <VibeLeaderboard
                 items={queueSorted}
-                emptyHint="Add songs to start the battle"
+                emptyHint="Nothing queued yet. Add a track when you’re ready."
                 onVote={vote}
                 getMyVote={getMyVote}
               />

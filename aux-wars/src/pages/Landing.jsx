@@ -73,25 +73,28 @@ export default function Landing() {
   void getUserId()
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-gradient-to-b from-[#0d0d0f] via-[#121214] to-[#0a0a0c] px-4 py-12">
-      <div className="w-full max-w-md text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.35em] text-aux-mint/90">
-          Shared jukebox
+    <div className="flex min-h-svh flex-col items-center justify-center px-4 py-16">
+      <div className="w-full max-w-[420px]">
+        <p className="font-display text-lg font-medium text-aux-fg-muted">
+          Shared listening
         </p>
-        <h1 className="mt-3 text-5xl font-black tracking-tight text-white sm:text-6xl">
+        <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-aux-ink sm:text-[2.75rem] sm:leading-[1.1]">
           Aux Wars
         </h1>
-        <p className="mt-3 text-lg text-white/55">May the best song win</p>
+        <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-aux-fg-muted">
+          One queue, everyone votes, the room hears what actually lands.
+        </p>
 
-        <div className="mt-10 rounded-2xl border border-aux-border bg-aux-surface/60 p-6 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
-            Display name
+        <div className="mt-10 rounded-lg border border-aux-border bg-aux-surface p-6 shadow-[0_1px_2px_rgba(28,25,23,0.05)]">
+          <label className="text-sm font-medium text-aux-fg" htmlFor="display-name">
+            Your name
           </label>
           <input
+            id="display-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="How judges see you"
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+            placeholder="How others see you"
+            className="mt-2 w-full rounded-md border border-aux-border bg-aux-elevated px-3 py-2.5 text-[15px] text-aux-fg placeholder:text-aux-fg-subtle focus:border-aux-fg-muted focus:outline-none focus:ring-1 focus:ring-aux-fg-muted/30"
           />
 
           {err && (
@@ -104,34 +107,35 @@ export default function Landing() {
             type="button"
             onClick={onCreate}
             disabled={busy}
-            className="mt-6 w-full rounded-xl bg-aux-mint py-3.5 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
+            className="mt-6 w-full rounded-md bg-aux-ink py-3 text-[15px] font-semibold text-stone-50 transition-colors hover:bg-stone-800 disabled:opacity-50"
           >
-            {busy ? 'Working…' : 'Create room'}
+            {busy ? 'One moment…' : 'Start a room'}
           </button>
 
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs uppercase tracking-wider text-white/35">or</span>
-            <div className="h-px flex-1 bg-white/10" />
+          <div className="my-7 flex items-center gap-4">
+            <div className="h-px flex-1 bg-aux-border" />
+            <span className="text-sm text-aux-fg-subtle">or join</span>
+            <div className="h-px flex-1 bg-aux-border" />
           </div>
 
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
+          <label className="text-sm font-medium text-aux-fg" htmlFor="room-code">
             Room code
           </label>
           <input
+            id="room-code"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="e.g. X7K2M9"
+            placeholder="Six letters or digits"
             maxLength={8}
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 font-mono text-lg tracking-widest text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+            className="mt-2 w-full rounded-md border border-aux-border bg-aux-elevated px-3 py-2.5 font-mono text-base tracking-[0.2em] text-aux-fg placeholder:text-aux-fg-subtle placeholder:tracking-normal focus:border-aux-fg-muted focus:outline-none focus:ring-1 focus:ring-aux-fg-muted/30"
           />
           <button
             type="button"
             onClick={onJoin}
             disabled={busy}
-            className="mt-3 w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-base font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+            className="mt-3 w-full rounded-md border border-aux-border bg-transparent py-3 text-[15px] font-semibold text-aux-fg transition-colors hover:bg-stone-900/[0.04] disabled:opacity-50"
           >
-            Join room
+            Join
           </button>
         </div>
       </div>

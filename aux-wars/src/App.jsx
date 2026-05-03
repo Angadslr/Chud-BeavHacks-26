@@ -12,9 +12,10 @@ const fallbackStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#0d0d0f',
-  color: '#e8e8ed',
-  fontFamily: 'system-ui, sans-serif',
+  background: '#ebe6dd',
+  color: '#57534e',
+  fontFamily:
+    'Inter, ui-sans-serif, system-ui, sans-serif',
 }
 
 const Room = lazy(async () => {
@@ -26,9 +27,11 @@ const Room = lazy(async () => {
       default: function RoomChunkError() {
         return (
           <div style={{ ...fallbackStyle, flexDirection: 'column', padding: 24, textAlign: 'center' }}>
-            <h1 style={{ color: '#fff' }}>Couldn’t load the room screen</h1>
-            <p style={{ color: 'rgba(232,232,237,0.7)', maxWidth: 480 }}>
-              This is often a network or bundler issue while loading the room chunk. Check the browser console.
+            <h1 style={{ color: '#1c1917', fontFamily: 'Fraunces, Georgia, serif', fontSize: '1.5rem', fontWeight: 600 }}>
+              Couldn’t open the room
+            </h1>
+            <p style={{ color: '#78716c', maxWidth: 480, fontSize: 15, lineHeight: 1.5 }}>
+              Usually a network hiccup or a failed chunk load. Check the console.
             </p>
             <pre
               style={{
@@ -36,7 +39,7 @@ const Room = lazy(async () => {
                 textAlign: 'left',
                 maxWidth: 560,
                 fontSize: 12,
-                color: '#fda4af',
+                color: '#b45348',
                 overflow: 'auto',
               }}
             >
@@ -63,45 +66,58 @@ function FirebaseSetupScreen() {
         boxSizing: 'border-box',
       }}
     >
-      <h1 style={{ color: '#fff', margin: '0 0 12px', fontSize: 28 }}>Aux Wars</h1>
-      <p style={{ color: 'rgba(232,232,237,0.75)', maxWidth: 480, margin: 0 }}>
-        Firebase isn’t ready yet. Add your Realtime Database keys to{' '}
-        <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+      <h1
+        style={{
+          color: '#1c1917',
+          margin: '0 0 12px',
+          fontSize: '1.75rem',
+          fontFamily: 'Fraunces, Georgia, serif',
+          fontWeight: 600,
+        }}
+      >
+        Aux Wars
+      </h1>
+      <p style={{ color: '#57534e', maxWidth: 480, margin: 0, fontSize: 15, lineHeight: 1.55 }}>
+        Firebase isn’t configured. Add your Realtime Database keys to{' '}
+        <code style={{ background: 'rgba(28,25,23,0.06)', padding: '2px 8px', borderRadius: 4, fontSize: 13 }}>
           aux-wars/.env
         </code>{' '}
-        (see <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 6 }}>.env.example</code>
-        ), then stop and run <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 6 }}>npm run dev</code> again.
+        (see{' '}
+        <code style={{ background: 'rgba(28,25,23,0.06)', padding: '2px 8px', borderRadius: 4, fontSize: 13 }}>
+          .env.example
+        </code>
+        ), then restart <code style={{ background: 'rgba(28,25,23,0.06)', padding: '2px 8px', borderRadius: 4, fontSize: 13 }}>npm run dev</code>.
       </p>
       <ul
         style={{
           marginTop: 20,
           textAlign: 'left',
           maxWidth: 480,
-          color: 'rgba(232,232,237,0.55)',
+          color: '#78716c',
           fontSize: 14,
-          lineHeight: 1.5,
+          lineHeight: 1.55,
         }}
       >
         <li>
-          <strong style={{ color: 'rgba(255,255,255,0.85)' }}>VITE_FIREBASE_API_KEY</strong> and{' '}
-          <strong style={{ color: 'rgba(255,255,255,0.85)' }}>VITE_FIREBASE_DATABASE_URL</strong> are required.
+          <strong style={{ color: '#292524' }}>VITE_FIREBASE_API_KEY</strong> and{' '}
+          <strong style={{ color: '#292524' }}>VITE_FIREBASE_DATABASE_URL</strong> are required.
         </li>
-        <li>Database URL usually ends in .firebaseio.com (Realtime Database, not Firestore).</li>
+        <li>The database URL is for Realtime Database (often ends in .firebaseio.com).</li>
       </ul>
       {!configured && (
         <p
           style={{
             marginTop: 20,
             maxWidth: 480,
-            padding: 12,
-            borderRadius: 12,
-            border: '1px solid rgba(245,158,11,0.35)',
-            background: 'rgba(245,158,11,0.12)',
-            color: '#fde68a',
+            padding: '12px 14px',
+            borderRadius: 8,
+            border: '1px solid rgba(180, 83, 72, 0.25)',
+            background: 'rgba(180, 83, 72, 0.06)',
+            color: '#7f2d2d',
             fontSize: 14,
           }}
         >
-          Env vars look missing or empty — fill <code>.env</code>, don’t leave placeholders blank.
+          Env vars look empty — fill <code>.env</code> with real values.
         </p>
       )}
       {configured && initErr && (
@@ -109,11 +125,11 @@ function FirebaseSetupScreen() {
           style={{
             marginTop: 20,
             maxWidth: 560,
-            padding: 12,
-            borderRadius: 12,
-            border: '1px solid rgba(239,68,68,0.35)',
-            background: 'rgba(239,68,68,0.12)',
-            color: '#fecaca',
+            padding: '12px 14px',
+            borderRadius: 8,
+            border: '1px solid rgba(180, 83, 72, 0.3)',
+            background: 'rgba(180, 83, 72, 0.08)',
+            color: '#7f1d1d',
             fontSize: 14,
             textAlign: 'left',
           }}
@@ -132,7 +148,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<div style={fallbackStyle}>Loading room…</div>}>
+      <Suspense fallback={<div style={fallbackStyle}>Loading…</div>}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/room/:roomId" element={<Room />} />
