@@ -15,6 +15,7 @@ import NowPlaying from '../components/NowPlaying'
 import VibeLeaderboard, {
   PlayHistorySection,
 } from '../components/VibeLeaderboard'
+import SwipeStack from '../components/SwipeCard'
 import SearchModal from '../components/SearchModal'
 import UserList from '../components/UserList'
 import HallOfShame from '../components/HallOfShame'
@@ -37,6 +38,8 @@ export default function Room() {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  // 'swipe' | 'list' — only relevant on mobile
+  const [voteTab, setVoteTab] = useState('swipe')
   const prevVideoRef = useRef(undefined)
 
   useEffect(() => {
@@ -138,6 +141,8 @@ export default function Room() {
     )
   }
 
+  const unvotedQueue = queueSorted.filter((s) => !getMyVote(s.id))
+
   return (
     <div className="min-h-svh bg-gradient-to-b from-aux-bg via-[#101012] to-aux-bg">
       <header className="sticky top-0 z-20 border-b border-aux-border bg-[#0d0d0f]/90 px-4 py-3 backdrop-blur-md">
@@ -208,21 +213,55 @@ export default function Room() {
           </div>
 
           <div className="space-y-4">
-            <div>
-              <h2 className="mb-2 text-left text-sm font-semibold uppercase tracking-wider text-white/45">
-                Vote on every track
-              </h2>
-              <p className="mb-3 text-left text-xs text-white/40">
-                Thumbs up or down on each song. Change your mind anytime — your
-                latest vote counts.
-              </p>
-              <VibeLeaderboard
-                items={queueSorted}
-                emptyHint="Add songs to start the battle"
-                onVote={vote}
-                getMyVote={getMyVote}
-              />
-              <PlayHistorySection playHistory={room.playHistory} />
+            {/* Mobile tab switcher — Swipe vs List */}
+            <div className="flex rounded-xl border border-aux-border bg-black/25 p-1 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setVoteTab('swipe')}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                  voteTab === 'swipe'
+                    ? 'bg-aux-mint text-black'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Swipe
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoteTab('list')}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                  voteTab === 'list'
+                    ? 'bg-aux-mint text-black'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Leaderboard
+              </button>
+            </div>
+
+            {/* Swipe view: active on mobile when swipe tab, always on desktop */}
+            <div className={`${voteTab === 'swipe' ? 'block' : 'hidden'} lg:block`}>
+              <SwipeStack items={unvotedQueue} onVote={vote} />
+            </div>
+
+            {/* Leaderboard: active on mobile when list tab, always on desktop */}
+            <div className={`${voteTab === 'list' ? 'block' : 'hidden'} lg:block`}>
+              <div>
+                <h2 className="mb-2 text-left text-sm font-semibold uppercase tracking-wider text-white/45">
+                  Leaderboard
+                </h2>
+                <p className="mb-3 text-left text-xs text-white/40">
+                  Thumbs up or down on each song. Change your mind anytime — your
+                  latest vote counts.
+                </p>
+                <VibeLeaderboard
+                  items={queueSorted}
+                  emptyHint="Add songs to start the battle"
+                  onVote={vote}
+                  getMyVote={getMyVote}
+                />
+                <PlayHistorySection playHistory={room.playHistory} />
+              </div>
             </div>
           </div>
         </div>

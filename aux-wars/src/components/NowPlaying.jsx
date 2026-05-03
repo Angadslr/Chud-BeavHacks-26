@@ -50,7 +50,7 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-const AlbumCover = memo(function AlbumCover({ videoId, storedThumb }) {
+export const AlbumCover = memo(function AlbumCover({ videoId, storedThumb }) {
   const candidates = youtubePosterCandidates(videoId, storedThumb)
   const [posterIndex, setPosterIndex] = useState(0)
   const posterSrc =
@@ -85,8 +85,10 @@ function NowPlayingActive({
   const progressBarRef = useRef(null)
   const isScrubbingRef = useRef(false)
   const scrubTimeRef = useRef(0)
+  const autoplayCheckRef = useRef(null)
 
   const [ytState, setYtState] = useState(-1)
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false)
   const [progress, setProgress] = useState({ current: 0, duration: 0 })
   const [isScrubbing, setIsScrubbing] = useState(false)
   const [scrubTime, setScrubTime] = useState(null)
@@ -121,6 +123,9 @@ function NowPlayingActive({
     (event) => {
       const st = event.data
       setYtState(st)
+      if (st === YT_PLAYING || st === YT_BUFFERING) {
+        setAutoplayBlocked(false)
+      }
       if (st === YT_ENDED) {
         const v = endedVideoRef.current
         if (v) onEnded?.(v)
@@ -135,6 +140,12 @@ function NowPlayingActive({
 
   useEffect(() => {
     let cancelled = false
+
+    setAutoplayBlocked(false)
+    if (autoplayCheckRef.current) {
+      window.clearTimeout(autoplayCheckRef.current)
+      autoplayCheckRef.current = null
+    }
 
     ;(async () => {
       await ensureYouTubeAPI()
@@ -160,7 +171,19 @@ function NowPlayingActive({
           },
           events: {
             onReady: () => {
+              if (cancelled) return
               syncStateFromPlayer()
+              autoplayCheckRef.current = window.setTimeout(() => {
+                if (cancelled || !playerRef.current) return
+                try {
+                  const st = playerRef.current.getPlayerState?.()
+                  if (st !== YT_PLAYING && st !== YT_BUFFERING) {
+                    setAutoplayBlocked(true)
+                  }
+                } catch {
+                  /* noop */
+                }
+              }, 1200)
             },
             onStateChange: handleStateChange,
           },
@@ -176,6 +199,10 @@ function NowPlayingActive({
 
     return () => {
       cancelled = true
+      if (autoplayCheckRef.current) {
+        window.clearTimeout(autoplayCheckRef.current)
+        autoplayCheckRef.current = null
+      }
     }
   }, [videoId, handleStateChange, syncStateFromPlayer])
 
@@ -286,6 +313,7 @@ function NowPlayingActive({
         p.pauseVideo()
       } else {
         p.playVideo()
+        setAutoplayBlocked(false)
       }
     } catch {
       /* noop */
@@ -302,147 +330,211 @@ function NowPlayingActive({
     onPrevious()
   }, [prevEnabled, onPrevious])
 
+  const tapToPlay = useCallback(() => {
+    const p = playerRef.current
+    if (p) {
+      try {
+        p.playVideo()
+        setAutoplayBlocked(false)
+      } catch {
+        /* noop */
+      }
+    }
+  }, [])
+
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60">
+    <>
+      {/* Hidden YouTube iframe — audio source */}
       <div
         ref={hostRef}
         className="pointer-events-none fixed -left-[9999px] bottom-0 h-[180px] w-[320px] opacity-[0.02]"
         aria-hidden
       />
 
-      <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
-        <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">
-              Now playing
-            </p>
-            <p className="mt-0.5 text-[11px] text-white/35">Aux Wars · room</p>
-          </div>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
-            YouTube
-          </span>
+      {/* Mobile mini-player (< sm) */}
+      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+          <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-white">
+            {nowPlaying.title}
+          </p>
+          <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>
+        </div>
+        {autoplayBlocked ? (
+          <button
+            type="button"
+            onClick={tapToPlay}
+            className="shrink-0 rounded-full bg-aux-mint px-3 py-1.5 text-xs font-bold text-black"
+          >
+            Tap to play
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={togglePlayPause}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm text-black shadow transition-transform active:scale-95"
+            aria-label={showPlaying ? 'Pause' : 'Play'}
+          >
+            {showPlaying ? '⏸' : '▶'}
+          </button>
+        )}
+      </div>
 
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
-          <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
-            <div
-              className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"
-              aria-hidden
-            />
-            <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
-              <AlbumCover
-                key={videoId}
-                videoId={videoId}
-                storedThumb={nowPlaying.thumbnail}
-              />
-              <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-white/5"
-                aria-hidden
-              />
-              <div
-                className="pointer-events-none absolute inset-0 shadow-[inset_0_0_32px_rgba(0,0,0,0.35)]"
-                aria-hidden
-              />
+      {/* Desktop full player (≥ sm) */}
+      <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60 sm:block">
+        <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">
+                Now playing
+              </p>
+              <p className="mt-0.5 text-[11px] text-white/35">Aux Wars · room</p>
             </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
+              YouTube
+            </span>
           </div>
 
-          <div className="min-w-0 flex-1 text-left">
-            <h2 className="line-clamp-2 text-pretty text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl">
-              {nowPlaying.title}
-            </h2>
-            <p className="mt-1 line-clamp-1 text-sm font-medium text-white/45 sm:text-base">
-              {nowPlaying.artist}
-            </p>
-
-            <div className="mt-6">
-              <div className="flex items-center justify-between tabular-nums text-[11px] text-white/40 sm:text-xs">
-                <span>{formatTime(displayTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
+            <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
               <div
-                ref={progressBarRef}
-                role="slider"
-                tabIndex={0}
-                aria-label="Seek track"
-                aria-valuemin={0}
-                aria-valuemax={Math.round(duration) || 0}
-                aria-valuenow={Math.round(displayTime)}
-                aria-disabled={duration <= 0}
-                className={`relative mt-2 h-5 cursor-pointer touch-none rounded-full py-2 ${duration > 0 ? '' : 'pointer-events-none opacity-40'}`}
-                onPointerDown={onProgressPointerDown}
-                onPointerMove={onProgressPointerMove}
-                onPointerUp={onProgressPointerUp}
-                onPointerCancel={onProgressPointerUp}
-                onKeyDown={(e) => {
-                  if (duration <= 0) return
-                  const p = playerRef.current
-                  if (!p?.seekTo) return
-                  const step = Math.min(10, duration * 0.05)
-                  let next = displayTime
-                  if (e.key === 'ArrowRight') next = Math.min(duration, displayTime + step)
-                  else if (e.key === 'ArrowLeft') next = Math.max(0, displayTime - step)
-                  else return
-                  e.preventDefault()
-                  try {
-                    p.seekTo(next, true)
-                    setProgress((prev) => ({ ...prev, current: next }))
-                  } catch {
-                    /* noop */
-                  }
-                }}
-              >
-                <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
-                <div
-                  className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
-                  style={{ width: `${progressPct}%` }}
+                className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"
+                aria-hidden
+              />
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
+                <AlbumCover
+                  key={videoId}
+                  videoId={videoId}
+                  storedThumb={nowPlaying.thumbnail}
                 />
                 <div
-                  className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-md transition-transform ${isScrubbing ? 'scale-110' : 'scale-100'}`}
-                  style={{ left: `${progressPct}%` }}
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-white/5"
+                  aria-hidden
                 />
+                <div
+                  className="pointer-events-none absolute inset-0 shadow-[inset_0_0_32px_rgba(0,0,0,0.35)]"
+                  aria-hidden
+                />
+
+                {/* Tap to play overlay — shown when autoplay is blocked */}
+                {autoplayBlocked && (
+                  <button
+                    type="button"
+                    onClick={tapToPlay}
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65"
+                    aria-label="Tap to play"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl text-white">
+                      ▶
+                    </div>
+                    <span className="mt-2 text-sm font-semibold text-white">
+                      Tap to play
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="mt-7 grid max-w-md grid-cols-3 items-center gap-2 sm:mt-8">
-              <button
-                type="button"
-                onClick={handlePrevious}
-                disabled={!prevEnabled}
-                title={
-                  prevEnabled
-                    ? 'Previous track'
-                    : 'No previous track yet — skip or finish a song first'
-                }
-                className="justify-self-start flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
-                aria-label="Previous track"
-              >
-                ⏮
-              </button>
+            <div className="min-w-0 flex-1 text-left">
+              <h2 className="line-clamp-2 text-pretty text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl">
+                {nowPlaying.title}
+              </h2>
+              <p className="mt-1 line-clamp-1 text-sm font-medium text-white/45 sm:text-base">
+                {nowPlaying.artist}
+              </p>
 
-              <button
-                type="button"
-                onClick={togglePlayPause}
-                className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
-                aria-label={showPlaying ? 'Pause' : 'Play'}
-              >
-                {showPlaying ? '⏸' : '▶'}
-              </button>
+              <div className="mt-6">
+                <div className="flex items-center justify-between tabular-nums text-[11px] text-white/40 sm:text-xs">
+                  <span>{formatTime(displayTime)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
+                <div
+                  ref={progressBarRef}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label="Seek track"
+                  aria-valuemin={0}
+                  aria-valuemax={Math.round(duration) || 0}
+                  aria-valuenow={Math.round(displayTime)}
+                  aria-disabled={duration <= 0}
+                  className={`relative mt-2 h-5 cursor-pointer touch-none rounded-full py-2 ${duration > 0 ? '' : 'pointer-events-none opacity-40'}`}
+                  onPointerDown={onProgressPointerDown}
+                  onPointerMove={onProgressPointerMove}
+                  onPointerUp={onProgressPointerUp}
+                  onPointerCancel={onProgressPointerUp}
+                  onKeyDown={(e) => {
+                    if (duration <= 0) return
+                    const p = playerRef.current
+                    if (!p?.seekTo) return
+                    const step = Math.min(10, duration * 0.05)
+                    let next = displayTime
+                    if (e.key === 'ArrowRight') next = Math.min(duration, displayTime + step)
+                    else if (e.key === 'ArrowLeft') next = Math.max(0, displayTime - step)
+                    else return
+                    e.preventDefault()
+                    try {
+                      p.seekTo(next, true)
+                      setProgress((prev) => ({ ...prev, current: next }))
+                    } catch {
+                      /* noop */
+                    }
+                  }}
+                >
+                  <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
+                  <div
+                    className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                  <div
+                    className={`pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-md transition-transform ${isScrubbing ? 'scale-110' : 'scale-100'}`}
+                    style={{ left: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleSkip}
-                disabled={!skipEnabled}
-                title={skipTitle}
-                className="justify-self-end flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
-                aria-label="Skip forward"
-              >
-                ⏭
-              </button>
+              <div className="mt-7 grid max-w-md grid-cols-3 items-center gap-2 sm:mt-8">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  disabled={!prevEnabled}
+                  title={
+                    prevEnabled
+                      ? 'Previous track'
+                      : 'No previous track yet — skip or finish a song first'
+                  }
+                  className="justify-self-start flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                  aria-label="Previous track"
+                >
+                  ⏮
+                </button>
+
+                <button
+                  type="button"
+                  onClick={togglePlayPause}
+                  className="justify-self-center flex h-14 w-14 items-center justify-center rounded-full bg-white text-lg text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16 sm:text-xl"
+                  aria-label={showPlaying ? 'Pause' : 'Play'}
+                >
+                  {showPlaying ? '⏸' : '▶'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={!skipEnabled}
+                  title={skipTitle}
+                  className="justify-self-end flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-lg text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                  aria-label="Skip forward"
+                >
+                  ⏭
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
