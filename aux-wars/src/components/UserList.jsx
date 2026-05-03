@@ -1,4 +1,4 @@
-export default function UserList({ users }) {
+export default function UserList({ users, isHost = false, currentUserId = '', onKick }) {
   const list = Object.entries(users || {})
   const count = list.length
 
@@ -11,8 +11,18 @@ export default function UserList({ users }) {
       {count > 0 && (
         <ul className="mt-2 max-h-24 space-y-1 overflow-y-auto text-left text-sm text-white/70">
           {list.map(([id, u]) => (
-            <li key={id} className="truncate">
-              {u.displayName || 'Guest'}
+            <li key={id} className="flex items-center justify-between gap-2">
+              <span className="truncate">{u.displayName || 'Guest'}</span>
+              {isHost && id !== currentUserId && (
+                <button
+                  type="button"
+                  onClick={() => onKick?.(id)}
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-aux-coral/60 transition-colors hover:bg-aux-coral/10 hover:text-aux-coral"
+                  title={`Kick ${u.displayName || 'Guest'}`}
+                >
+                  kick
+                </button>
+              )}
             </li>
           ))}
         </ul>

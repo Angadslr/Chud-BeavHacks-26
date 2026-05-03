@@ -96,6 +96,8 @@ function NowPlayingActive({
   canPrevious,
   hasNextInQueue = false,
   isHost = false,
+  allowSkip = true,
+  allowPause = true,
 }) {
   const hostRef = useRef(null)
   const playerRef = useRef(null)
@@ -388,7 +390,7 @@ function NowPlayingActive({
           >
             Tap to play
           </button>
-        ) : (
+        ) : allowPause ? (
           <button
             type="button"
             onClick={togglePlayPause}
@@ -397,8 +399,8 @@ function NowPlayingActive({
           >
             {showPlaying ? <PauseIcon /> : <PlayIcon />}
           </button>
-        )}
-        {isHost && (
+        ) : null}
+        {isHost && allowSkip && (
           <button
             type="button"
             onClick={handleSkip}
@@ -546,16 +548,18 @@ function NowPlayingActive({
                   </svg>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={togglePlayPause}
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16"
-                  aria-label={showPlaying ? 'Pause' : 'Play'}
-                >
-                  {showPlaying ? <PauseIcon /> : <PlayIcon />}
-                </button>
+                {allowPause ? (
+                  <button
+                    type="button"
+                    onClick={togglePlayPause}
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16"
+                    aria-label={showPlaying ? 'Pause' : 'Play'}
+                  >
+                    {showPlaying ? <PauseIcon /> : <PlayIcon />}
+                  </button>
+                ) : null}
 
-                {isHost && (
+                {isHost && allowSkip && (
                   <button
                     type="button"
                     onClick={handleSkip}

@@ -132,13 +132,15 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<div style={fallbackStyle}>Loading room…</div>}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/room/:roomId" element={<Room />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      <div style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
+        <Suspense fallback={<div style={fallbackStyle}>Loading room…</div>}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/room/:roomId" element={<Room />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </div>
     </BrowserRouter>
   )
 }

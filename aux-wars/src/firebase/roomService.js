@@ -7,6 +7,7 @@ import {
   runTransaction,
   update,
   onDisconnect,
+  remove,
 } from 'firebase/database'
 import { getDb } from './config'
 
@@ -26,12 +27,16 @@ export function roomRef(roomId) {
   return ref(requireDb(), `rooms/${roomId}`)
 }
 
-export function createRoom(roomId, hostId) {
+export function createRoom(roomId, hostId, settings = {}) {
   const now = Date.now()
   return set(roomRef(roomId), {
     createdAt: now,
     lastActivityAt: now,
     hostId: hostId || null,
+    settings: {
+      allowSkip: settings.allowSkip !== false,
+      allowPause: settings.allowPause !== false,
+    },
     nowPlaying: null,
     previousTrack: null,
     queue: {},
@@ -39,6 +44,11 @@ export function createRoom(roomId, hostId) {
     users: {},
     playHistory: {},
   })
+}
+
+export function kickUser(roomId, userId) {
+  const userRef = ref(requireDb(), `rooms/${roomId}/users/${userId}`)
+  return remove(userRef)
 }
 
 export function subscribeRoom(roomId, cb) {

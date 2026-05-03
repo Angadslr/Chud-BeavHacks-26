@@ -9,6 +9,7 @@ import {
   advanceToNextSong,
   forceSkipToNext,
   goToPreviousTrack,
+  kickUser,
 } from '../firebase/roomService'
 import { getDisplayName, getUserId } from '../lib/session'
 import NowPlaying from '../components/NowPlaying'
@@ -68,6 +69,14 @@ export default function Room() {
     }
   }, [room, loading, navigate])
 
+  // Kicked detection: redirect if the host removed this user
+  useEffect(() => {
+    if (!room || loading || !userId) return
+    if (room.users && !room.users[userId] && room.hostId && userId !== room.hostId) {
+      navigate('/?kicked=1', { replace: true })
+    }
+  }, [room, loading, userId, navigate])
+
   useEffect(() => {
     if (!roomId || !room) return
     const np = room.nowPlaying
@@ -94,6 +103,14 @@ export default function Room() {
     if (!roomId) return
     goToPreviousTrack(roomId).catch(console.error)
   }, [roomId])
+
+  const handleKickUser = useCallback(
+    (targetUserId) => {
+      if (!roomId) return
+      kickUser(roomId, targetUserId).catch(console.error)
+    },
+    [roomId],
+  )
 
   useEffect(() => {
     const v = room?.nowPlaying?.videoId
@@ -142,6 +159,9 @@ export default function Room() {
   }
 
   const isHost = Boolean(room?.hostId && userId === room.hostId)
+  const settings = room?.settings || {}
+  const allowSkip = settings.allowSkip !== false
+  const allowPause = settings.allowPause !== false
   const unvotedQueue = queueSorted.filter((s) => !getMyVote(s.id))
 
   return (
@@ -209,8 +229,15 @@ export default function Room() {
               canPrevious={Boolean(room.previousTrack?.videoId)}
               hasNextInQueue={queueSorted.length > 0}
               isHost={isHost}
+              allowSkip={allowSkip}
+              allowPause={allowPause}
             />
-            <UserList users={room.users} />
+            <UserList
+              users={room.users}
+              isHost={isHost}
+              currentUserId={userId}
+              onKick={handleKickUser}
+            />
             <HallOfShame users={room.users} />
           </div>
 
@@ -243,7 +270,7 @@ export default function Room() {
 
             {/* Swipe view: active on mobile when swipe tab, always on desktop */}
             <div className={`${voteTab === 'swipe' ? 'block' : 'hidden'} lg:block`}>
-              <SwipeStack items={unvotedQueue} onVote={vote} />
+              <SwipeStack items={unvotedQueue} onVote={vote} onAddSong={() => setSearchOpen(true)} />
             </div>
 
             {/* Leaderboard: active on mobile when list tab, always on desktop */}

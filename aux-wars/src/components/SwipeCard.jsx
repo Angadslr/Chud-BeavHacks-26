@@ -207,7 +207,7 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
   )
 }
 
-export default function SwipeStack({ items = [], onVote }) {
+export default function SwipeStack({ items = [], onVote, onAddSong }) {
   const [dismissed, setDismissed] = useState(new Set())
 
   const eligibleItems = useMemo(() => {
@@ -247,15 +247,33 @@ export default function SwipeStack({ items = [], onVote }) {
   )
 
   if (!visible.length) {
+    const emptyMsg =
+      eligibleItems.length === 0 && items.length > 0
+        ? 'No valid songs in queue'
+        : items.length === 0
+          ? 'Tap to add the first song'
+          : "You've voted on everything!"
+    const isAddable = items.length === 0 && Boolean(onAddSong)
+
     return (
-      <div className="flex min-h-[30vh] items-center justify-center rounded-[20px] border border-aux-border bg-aux-surface/80">
-        <p className="text-sm text-white/40">
-          {eligibleItems.length === 0 && items.length > 0
-            ? 'No valid songs in queue'
-            : items.length === 0
-              ? 'No songs in queue'
-              : "You've voted on everything!"}
-        </p>
+      <div
+        className={`flex min-h-[30vh] flex-col items-center justify-center gap-3 rounded-[20px] border border-aux-border bg-aux-surface/80 transition-colors ${
+          isAddable ? 'cursor-pointer hover:bg-aux-surface active:bg-aux-surface/60' : ''
+        }`}
+        onClick={isAddable ? onAddSong : undefined}
+        role={isAddable ? 'button' : undefined}
+        tabIndex={isAddable ? 0 : undefined}
+        onKeyDown={isAddable ? (e) => (e.key === 'Enter' || e.key === ' ') && onAddSong() : undefined}
+      >
+        {isAddable && (
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-white/40" aria-hidden>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </div>
+        )}
+        <p className="text-sm text-white/40">{emptyMsg}</p>
       </div>
     )
   }

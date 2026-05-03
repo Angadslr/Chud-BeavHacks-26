@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { customAlphabet } from 'nanoid'
 import { createRoom, roomExists } from '../firebase/roomService'
 import { setDisplayName, getDisplayName, getUserId } from '../lib/session'
@@ -14,12 +14,41 @@ async function uniqueRoomCode() {
   return genRoomCode()
 }
 
+function Toggle({ checked, onChange, label }) {
+  return (
+    <label className="flex cursor-pointer select-none items-center justify-between gap-3">
+      <span className="text-sm text-white/60">{label}</span>
+      <div
+        role="switch"
+        aria-checked={checked}
+        tabIndex={0}
+        onClick={() => onChange(!checked)}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onChange(!checked)}
+        className={`relative h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-aux-mint/40 ${
+          checked ? 'bg-aux-mint' : 'bg-white/20'
+        }`}
+      >
+        <div
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+            checked ? 'translate-x-5' : 'translate-x-0.5'
+          }`}
+        />
+      </div>
+    </label>
+  )
+}
+
 export default function Landing() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const wasKicked = searchParams.get('kicked') === '1'
+
   const [name, setName] = useState(getDisplayName())
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const [allowSkip, setAllowSkip] = useState(true)
+  const [allowPause, setAllowPause] = useState(true)
 
   const saveName = () => {
     if (!name.trim()) {
@@ -36,7 +65,7 @@ export default function Landing() {
     setBusy(true)
     try {
       const code = await uniqueRoomCode()
-      await createRoom(code, getUserId())
+      await createRoom(code, getUserId(), { allowSkip, allowPause })
       navigate(`/room/${code}`)
     } catch (e) {
       console.error(e)
@@ -78,6 +107,12 @@ export default function Landing() {
         <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl">
           No Skip
         </h1>
+
+        {wasKicked && (
+          <div className="mt-6 rounded-xl border border-aux-coral/35 bg-aux-coral/10 px-4 py-3 text-sm font-medium text-aux-coral">
+            You were removed from the room.
+          </div>
+        )}
 
         <div className="mt-10 rounded-2xl border border-aux-border bg-aux-surface/60 p-6 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
           {/* Display name */}
@@ -127,12 +162,21 @@ export default function Landing() {
             <div className="h-px flex-1 bg-white/10" />
           </div>
 
+          {/* Room settings toggles */}
+          <div className="mb-4 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+              New room settings
+            </p>
+            <Toggle checked={allowSkip} onChange={setAllowSkip} label="Host can skip tracks" />
+            <Toggle checked={allowPause} onChange={setAllowPause} label="Host can pause playback" />
+          </div>
+
           {/* Secondary action — create */}
           <button
             type="button"
             onClick={onCreate}
             disabled={busy}
-            className="w-full rounded-xl border border-white/20 bg-transparent py-3 text-sm font-medium text-white/65 hover:bg-white/5 hover:text-white/90 disabled:opacity-50"
+            className="w-full rounded-xl border border-white/20 bg-transparent py-4 text-sm font-semibold text-white/70 hover:bg-white/5 hover:text-white/90 disabled:opacity-50"
           >
             {busy ? 'Working…' : 'Create a new room'}
           </button>
