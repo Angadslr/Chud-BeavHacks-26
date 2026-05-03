@@ -236,7 +236,7 @@ export default function Room() {
               currentUserId={userId}
               onKick={handleKickUser}
             />
-            <HallOfShame users={room.users} />
+            <HallOfShame users={room.users} queue={queueSorted} />
           </div>
 
           <div className="space-y-4">

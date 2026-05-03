@@ -19,13 +19,28 @@ const QUOTA_USER_MESSAGE =
 const QUOTA_HELP_URL =
   'https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas'
 
+function decodeHtmlEntities(str) {
+  if (!str) return ''
+  return String(str)
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x0*27;/gi, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
 function stripHtmlForDisplay(htmlish) {
   if (!htmlish) return ''
-  return String(htmlish)
-    .replace(/<a[^>]*href=['"]([^'"]*)['"][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return decodeHtmlEntities(
+    String(htmlish)
+      .replace(/<a[^>]*href=['"]([^'"]*)['"][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
 }
 
 function isYouTubeQuotaError(message, errors) {
@@ -191,8 +206,8 @@ function ytItemsToRows(items) {
     return {
       id: yt.id.videoId,
       type: 'youtube',
-      title: yt.snippet.title,
-      artist: yt.snippet.channelTitle || 'Unknown',
+      title: decodeHtmlEntities(yt.snippet.title),
+      artist: decodeHtmlEntities(yt.snippet.channelTitle || 'Unknown'),
       thumbnail: thumbs.medium?.url || thumbs.default?.url || '',
       videoId: yt.id.videoId,
       relevanceRank: index,
