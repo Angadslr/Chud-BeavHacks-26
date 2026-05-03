@@ -402,21 +402,25 @@ export default function SearchModal({
     const rows = Array.from(list.querySelectorAll('.queue-item'))
     if (rows.length === 0) return null
 
-    // Use offsetTop + offsetHeight (natural layout positions) instead of
-    // getBoundingClientRect() — getBoundingClientRect reflects CSS transforms,
-    // so once sibling items are shifted by shouldShiftUp/shouldShiftDown the
-    // reported rects are wrong and hover index jumps to end-of-list.
+    // offsetTop is relative to offsetParent (the nearest *positioned* ancestor).
+    // The list container has no position set so it is NOT the offsetParent — the
+    // fixed sidebar/bottom-sheet above it is. We therefore compute each row's
+    // position relative to the list by subtracting the list's own offsetTop
+    // from the row's offsetTop (both share the same offsetParent).
     const listTop = list.getBoundingClientRect().top
     const scrollTop = list.scrollTop
+    const listOffsetTop = list.offsetTop  // list's own offset from shared offsetParent
 
     let nextHover = rows.length // default: after all items
     for (const row of rows) {
       const idx = Number(row.getAttribute('data-queue-index'))
       if (Number.isNaN(idx)) continue
-      // Skip the dragged item — its offsetTop is at its original position but
-      // its visual position follows the pointer, which would corrupt hit-testing.
+      // Skip the dragged item so its stale offsetTop doesn't corrupt detection.
       if (idx === dragIndex.current) continue
-      const rowTopViewport = listTop + row.offsetTop - scrollTop
+      // row.offsetTop - listOffsetTop = row's top relative to the list container top.
+      // Add listTop (viewport Y of list) and subtract scrollTop to get viewport Y.
+      const rowTopInList = row.offsetTop - listOffsetTop
+      const rowTopViewport = listTop + rowTopInList - scrollTop
       const midpoint = rowTopViewport + row.offsetHeight * 0.5
       if (clientY < midpoint) {
         nextHover = idx
