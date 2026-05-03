@@ -156,7 +156,7 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
               </div>
             ) : (
               <>
-                <p className="line-clamp-3 break-words text-2xl font-bold leading-tight text-white sm:text-3xl">
+                <p className="line-clamp-2 break-words text-2xl font-bold leading-tight text-white sm:text-3xl">
                   {song.title ?? ''}
                 </p>
                 {(song.artist ?? '') !== '' ? (
@@ -290,8 +290,8 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
       </div>
 
       <div
-        className="relative mx-auto w-full max-w-md"
-        style={{ minHeight: '65vh', height: '65vh' }}
+        className="relative mx-auto w-full max-w-md overflow-hidden"
+        style={{ minHeight: '65vh', height: '65vh', zIndex: 1 }}
       >
         {[...visible].reverse().map((song, revIdx) => {
           const stackIdx = visible.length - 1 - revIdx

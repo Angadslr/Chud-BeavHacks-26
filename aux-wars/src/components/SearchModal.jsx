@@ -383,10 +383,14 @@ export default function SearchModal({ roomId, open, onClose }) {
     }
   }, [q, open, runSearch])
 
-  // Stage a song WITHOUT clearing search — results stay visible
+  // Stage a song (or unstage if already staged) WITHOUT clearing search — results stay visible
   const pick = useCallback((item) => {
     setStaged((prev) => {
-      if (prev.some((s) => s.videoId === item.videoId)) return prev
+      const existing = prev.find((s) => s.videoId === item.videoId)
+      if (existing) {
+        // Already staged — remove it
+        return prev.filter((s) => s.videoId !== item.videoId)
+      }
       return [...prev, { ...item, stagedId: `${item.videoId}-${Date.now()}` }]
     })
     // Intentionally do NOT clear q or results here
@@ -517,7 +521,7 @@ export default function SearchModal({ roomId, open, onClose }) {
       </div>
 
       {/* Search results — scrollable, stays visible after picking */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         {error && (
           <div className="mb-2 rounded-lg bg-aux-coral/15 px-3 py-2 text-sm text-aux-coral">
             <p className="whitespace-pre-line">{error}</p>
@@ -556,26 +560,31 @@ export default function SearchModal({ roomId, open, onClose }) {
                 <button
                   type="button"
                   onClick={() => pick(item)}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors ${
+                  className={`group flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors ${
                     isStaged
-                      ? 'border-aux-mint/40 bg-aux-mint/[0.10] hover:bg-aux-mint/[0.14]'
+                      ? 'border-aux-mint/40 bg-aux-mint/[0.10] hover:border-aux-coral/40 hover:bg-aux-coral/[0.08]'
                       : highPopularity
                         ? 'border-aux-mint/25 bg-aux-mint/[0.07] hover:bg-aux-mint/10'
-                        : 'border-transparent bg-black/25 hover:bg-black/40 hover:border-aux-mint/40'
+                        : 'border-transparent bg-black/25 hover:border-aux-mint/40 hover:bg-black/40'
                   }`}
                 >
                   <img src={item.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="line-clamp-1 font-medium text-white">{item.title}</p>
+                      <p className="max-w-full truncate font-medium text-white">{item.title}</p>
                       {index === 0 && !isStaged && (
                         <span className="shrink-0 rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
                           Best match
                         </span>
                       )}
                       {isStaged && (
-                        <span className="shrink-0 rounded-full bg-aux-mint/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-mint">
-                          ✓ Staged
+                        <span className="shrink-0">
+                          <span className="rounded-full bg-aux-mint/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-mint group-hover:hidden">
+                            ✓ Staged
+                          </span>
+                          <span className="hidden rounded-full bg-aux-coral/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-coral group-hover:inline-block">
+                            × Remove
+                          </span>
                         </span>
                       )}
                     </div>
@@ -598,7 +607,7 @@ export default function SearchModal({ roomId, open, onClose }) {
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
               Queue order ({staged.length})
             </p>
-            <div className="max-h-[190px] space-y-0.5 overflow-y-auto">
+            <div className="max-h-[190px] space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
               {staged.map((song, idx) => (
                 <div
                   key={song.stagedId}

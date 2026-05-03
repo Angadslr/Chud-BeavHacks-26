@@ -145,7 +145,7 @@ function GuestReadOnlyPlayer({ nowPlaying, roomId }) {
             </span>
           </div>
 
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
               <div className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl" aria-hidden />
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
@@ -599,7 +599,7 @@ function NowPlayingActive({
             </span>
           </div>
 
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
               <div
                 className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"

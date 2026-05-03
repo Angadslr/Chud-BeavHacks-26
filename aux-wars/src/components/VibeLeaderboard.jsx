@@ -145,7 +145,7 @@ export default function VibeLeaderboard({
                       🔥 Up next
                     </p>
                   )}
-                  <p className="line-clamp-2 font-semibold leading-tight text-white">
+                  <p className="max-w-full truncate font-semibold leading-tight text-white">
                     {song.title}
                   </p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-white/50">
