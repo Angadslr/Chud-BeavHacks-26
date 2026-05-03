@@ -465,7 +465,6 @@ export default function SearchModal({
     const row = e.currentTarget.closest('.queue-item')
     if (!row) return
     activePointerIdRef.current = e.pointerId
-    e.currentTarget.setPointerCapture(e.pointerId)
     draggedRowRef.current = row
     dragStartYRef.current = e.clientY
     draggedRowRef.current.style.willChange = 'transform'
@@ -473,32 +472,45 @@ export default function SearchModal({
     draggedRowRef.current.style.position = 'relative'
     draggedRowRef.current.style.zIndex = '50'
     draggedRowRef.current.style.transform = 'translateY(0px) scale(1.03)'
-
     dragIndex.current = idx
     hoverIndex.current = idx
     setDraggingIndexState(idx)
     setHoverIndexState(idx)
   }, [])
 
-  const onHandlePointerMove = useCallback((e) => {
-    if (activePointerIdRef.current !== e.pointerId) return
-    if (!draggedRowRef.current || dragIndex.current === null) return
-    e.preventDefault()
-    const clientY = e.clientY
-    if (Math.abs(clientY - dragStartYRef.current) > 8) {
-      updateHoverIndexFromY(clientY, 0.6)
-    }
-    const deltaY = clientY - dragStartYRef.current
-    draggedRowRef.current.style.transform = `translateY(${deltaY}px) scale(1.03)`
-  }, [updateHoverIndexFromY])
+  // Attach move/up/cancel to window for the duration of a drag so the
+  // handlers fire even when the pointer leaves the tiny drag-handle button.
+  // This is the only reliable approach on mobile (iOS Safari ignores
+  // setPointerCapture in scrollable containers).
+  useEffect(() => {
+    if (draggingIndexState === null) return
 
-  const onHandlePointerUp = useCallback((e) => {
-    if (activePointerIdRef.current !== e.pointerId) return
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId)
+    const onMove = (e) => {
+      if (activePointerIdRef.current !== e.pointerId) return
+      if (!draggedRowRef.current || dragIndex.current === null) return
+      e.preventDefault()
+      const clientY = e.clientY
+      if (Math.abs(clientY - dragStartYRef.current) > 8) {
+        updateHoverIndexFromY(clientY, 0.6)
+      }
+      draggedRowRef.current.style.transform =
+        `translateY(${clientY - dragStartYRef.current}px) scale(1.03)`
     }
-    finishReorder(false)
-  }, [finishReorder])
+
+    const onUp = (e) => {
+      if (activePointerIdRef.current !== e.pointerId) return
+      finishReorder(false)
+    }
+
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [draggingIndexState, updateHoverIndexFromY, finishReorder])
 
   const addAllToQueue = useCallback(async () => {
     if (!staged.length || !roomId || adding) return
@@ -679,7 +691,10 @@ export default function SearchModal({
             <div
               ref={listRef}
               className="max-h-[190px] space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden"
-              style={{ scrollbarWidth: 'none' }}
+              style={{
+                scrollbarWidth: 'none',
+                touchAction: draggingIndexState !== null ? 'none' : 'pan-y',
+              }}
             >
               {staged.map((song, idx) => {
                 const isDragging = draggingIndexState === idx
@@ -725,9 +740,6 @@ export default function SearchModal({
                   <button
                     type="button"
                     onPointerDown={(e) => onHandlePointerDown(e, idx)}
-                    onPointerMove={onHandlePointerMove}
-                    onPointerUp={onHandlePointerUp}
-                    onPointerCancel={onHandlePointerUp}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white/45 transition-colors hover:bg-white/10 hover:text-white"
                     style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
                     aria-label={`Reorder ${song.title}`}
