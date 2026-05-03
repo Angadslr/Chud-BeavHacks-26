@@ -8,12 +8,10 @@ const LASTFM_API = 'https://ws.audioscrobbler.com/2.0/'
 const MB_API = 'https://musicbrainz.org/ws/2/recording/'
 const CAA_BASE = 'https://coverartarchive.org/release'
 
-/** Slightly longer debounce reduces YouTube Data API quota burn (search costs ~100 units). */
 const SEARCH_DEBOUNCE_MS = 400
 const MIN_QUERY_LEN = 2
 const HIGH_POPULARITY_THRESHOLD = 100_000_000
 const SEARCH_CACHE_MAX = 10
-/** After a quota error, skip new YouTube requests briefly to avoid hammering a dead endpoint. */
 const YOUTUBE_QUOTA_BACKOFF_MS = 120_000
 
 const QUOTA_USER_MESSAGE =
@@ -43,7 +41,6 @@ function isYouTubeQuotaError(message, errors) {
   )
 }
 
-/** Same compact formatting as before; `plays` | `youtubeViews` picks the suffix. */
 function formatPopularityBadge(n, kind) {
   if (n == null || Number.isNaN(n)) return '—'
   const v = Number(n)
@@ -68,11 +65,6 @@ function cacheKey(query) {
   return query.trim().toLowerCase()
 }
 
-/**
- * Preserve YouTube's relevance order (order=relevance). Lower index = better title match.
- * Popularity (Last.fm / YouTube) must never move a worse-relevance row above a better one,
- * so we sort by relevanceRank only. Tie-break: popularity (shouldn't occur per rank).
- */
 function sortSearchResults(rows) {
   return [...rows].sort((a, b) => {
     const ra = a.relevanceRank ?? 999
@@ -105,7 +97,6 @@ async function searchYouTube(query, key, maxResults = 10) {
   return data.items || []
 }
 
-/** Fetch statistics for all ids; chunk requests run in parallel via Promise.all. */
 async function fetchVideoStatistics(videoIds, key) {
   const unique = [...new Set(videoIds.filter(Boolean))]
   const chunkSize = 50
@@ -113,7 +104,6 @@ async function fetchVideoStatistics(videoIds, key) {
   for (let i = 0; i < unique.length; i += chunkSize) {
     chunks.push(unique.slice(i, i + chunkSize))
   }
-
   const maps = await Promise.all(
     chunks.map(async (chunk) => {
       const url = new URL(YT_VIDEOS)
@@ -122,9 +112,7 @@ async function fetchVideoStatistics(videoIds, key) {
       url.searchParams.set('key', key)
       const res = await fetch(url.toString())
       const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'YouTube video stats failed')
-      }
+      if (!res.ok) throw new Error(data.error?.message || 'YouTube video stats failed')
       const m = new Map()
       for (const item of data.items || []) {
         const raw = item.statistics?.viewCount
@@ -133,7 +121,6 @@ async function fetchVideoStatistics(videoIds, key) {
       return m
     }),
   )
-
   const merged = new Map()
   for (const m of maps) {
     for (const [k, v] of m) merged.set(k, v)
@@ -190,10 +177,7 @@ async function resolveCoverArtFromMusicBrainz(item) {
 
 function preloadImage(url) {
   return new Promise((resolve) => {
-    if (!url) {
-      resolve(false)
-      return
-    }
+    if (!url) { resolve(false); return }
     const img = new Image()
     img.onload = () => resolve(true)
     img.onerror = () => resolve(false)
@@ -225,16 +209,60 @@ function pushSearchCache(cacheRef, key, rows) {
   cacheRef.current = list.slice(0, SEARCH_CACHE_MAX)
 }
 
+function DragHandle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      className="shrink-0 text-white/30"
+    >
+      <rect x="2" y="3.5" width="12" height="1.5" rx="0.75" />
+      <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" />
+      <rect x="2" y="11" width="12" height="1.5" rx="0.75" />
+    </svg>
+  )
+}
+
 export default function SearchModal({ roomId, open, onClose }) {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState([])
   const [error, setError] = useState(null)
+  const [staged, setStaged] = useState([])
+  const [adding, setAdding] = useState(false)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+
   const searchSeq = useRef(0)
   const debounceTimerRef = useRef(null)
   const searchCacheRef = useRef([])
   const lastGoodResultsRef = useRef([])
   const youtubeQuotaBackoffUntilRef = useRef(0)
+  const dragIndexRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  // Focus input when opened
+  useEffect(() => {
+    if (open) {
+      window.setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [open])
+
+  const handleClose = useCallback(() => {
+    setStaged([])
+    setQ('')
+    setResults([])
+    setError(null)
+    setAdding(false)
+    searchSeq.current += 1
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    onClose()
+  }, [onClose])
 
   const runSearch = useCallback(async (query) => {
     const ytKey = import.meta.env.VITE_YOUTUBE_API_KEY
@@ -243,9 +271,7 @@ export default function SearchModal({ roomId, open, onClose }) {
       setResults([])
       return
     }
-
     const lastFmKey = import.meta.env.VITE_LASTFM_API_KEY || ''
-
     const normalized = cacheKey(query)
     const cached = searchCacheRef.current.find((e) => e.key === normalized)
     if (cached) {
@@ -256,51 +282,39 @@ export default function SearchModal({ roomId, open, onClose }) {
       lastGoodResultsRef.current = cached.rows
       return
     }
-
     if (Date.now() < youtubeQuotaBackoffUntilRef.current) {
       searchSeq.current += 1
       setLoading(false)
       const stale = lastGoodResultsRef.current.length > 0
       setError(
         stale
-          ? `${QUOTA_USER_MESSAGE} Showing the last results below; they may not match “${query.trim()}”.`
+          ? `${QUOTA_USER_MESSAGE} Showing the last results below; they may not match "${query.trim()}".`
           : QUOTA_USER_MESSAGE,
       )
       if (stale) setResults(lastGoodResultsRef.current)
       return
     }
-
     const seq = ++searchSeq.current
     setLoading(true)
     setError(null)
-
     try {
       const items = await searchYouTube(query, ytKey, 10)
       if (seq !== searchSeq.current) return
-
       const baseRows = ytItemsToRows(items)
       setResults(baseRows)
       setLoading(false)
-
       const ids = baseRows.map((r) => r.videoId)
       const [ytStatsMap, lastFmCounts] = await Promise.all([
         fetchVideoStatistics(ids, ytKey).catch(() => new Map()),
-        Promise.all(
-          baseRows.map((row) =>
-            fetchLastFmPlaycount(row.artist, row.title, lastFmKey),
-          ),
-        ),
+        Promise.all(baseRows.map((row) => fetchLastFmPlaycount(row.artist, row.title, lastFmKey))),
       ])
       if (seq !== searchSeq.current) return
-
       const enriched = baseRows.map((row, i) => {
         const lf = lastFmCounts[i]
         const ytViews = ytStatsMap.get(row.videoId)
-
         let popularityScore = 0
         let popularityLabel = '—'
         let popularitySource = null
-
         if (lf != null) {
           popularityScore = lf
           popularityLabel = formatPopularityBadge(lf, 'plays')
@@ -310,15 +324,8 @@ export default function SearchModal({ roomId, open, onClose }) {
           popularityLabel = formatPopularityBadge(ytViews, 'youtubeViews')
           popularitySource = 'youtube'
         }
-
-        return {
-          ...row,
-          popularityScore,
-          popularityLabel,
-          popularitySource,
-        }
+        return { ...row, popularityScore, popularityLabel, popularitySource }
       })
-
       const merged = sortSearchResults(enriched)
       setResults(merged)
       lastGoodResultsRef.current = merged
@@ -326,9 +333,7 @@ export default function SearchModal({ roomId, open, onClose }) {
     } catch (e) {
       if (seq !== searchSeq.current) return
       const isQuota = !!e?.isQuota
-      if (isQuota) {
-        youtubeQuotaBackoffUntilRef.current = Date.now() + YOUTUBE_QUOTA_BACKOFF_MS
-      }
+      if (isQuota) youtubeQuotaBackoffUntilRef.current = Date.now() + YOUTUBE_QUOTA_BACKOFF_MS
       const baseMsg = e.message || 'Search failed'
       const stale = isQuota && lastGoodResultsRef.current.length > 0
       setError(
@@ -336,79 +341,110 @@ export default function SearchModal({ roomId, open, onClose }) {
           ? `${baseMsg} Showing the last results below; they may not match your search.`
           : baseMsg,
       )
-      if (stale) {
-        setResults(lastGoodResultsRef.current)
-      } else {
-        setResults([])
-      }
+      if (stale) setResults(lastGoodResultsRef.current)
+      else setResults([])
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     if (!open) return
-
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
+    const onKey = (e) => { if (e.key === 'Escape') handleClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, handleClose])
 
   useEffect(() => {
     if (!open) return
-
     const trimmed = q.trim()
     if (trimmed.length < MIN_QUERY_LEN) return
-
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null
       runSearch(trimmed)
     }, SEARCH_DEBOUNCE_MS)
-
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
+      if (debounceTimerRef.current) { clearTimeout(debounceTimerRef.current); debounceTimerRef.current = null }
     }
   }, [q, open, runSearch])
 
-  const pick = async (item) => {
-    if (!roomId) return
-    const queueItemKey = await addSong(roomId, {
-      videoId: item.videoId,
-      title: item.title,
-      thumbnail: item.thumbnail,
-      artist: item.artist,
-      addedBy: getDisplayName() || 'Guest',
-      addedByUserId: getUserId(),
+  // Stage a song WITHOUT clearing search — results stay visible
+  const pick = useCallback((item) => {
+    setStaged((prev) => {
+      if (prev.some((s) => s.videoId === item.videoId)) return prev
+      return [...prev, { ...item, stagedId: `${item.videoId}-${Date.now()}` }]
     })
-    onClose()
-    setQ('')
-    setResults([])
+    // Intentionally do NOT clear q or results here
+  }, [])
 
-    void (async () => {
-      try {
-        const artUrl = await resolveCoverArtFromMusicBrainz(item)
-        if (!artUrl) return
-        const ok = await preloadImage(artUrl)
-        if (!ok) return
-        await patchQueueSong(roomId, queueItemKey, { thumbnail: artUrl })
-      } catch {
-        /* ignore background enrichment errors */
+  const removeStaged = useCallback((stagedId) => {
+    setStaged((prev) => prev.filter((s) => s.stagedId !== stagedId))
+  }, [])
+
+  // Drag-to-reorder handlers
+  const onDragStart = useCallback((e, idx) => {
+    dragIndexRef.current = idx
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const onDragOver = useCallback((e, idx) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIdx(idx)
+  }, [])
+
+  const onDrop = useCallback((e, idx) => {
+    e.preventDefault()
+    const from = dragIndexRef.current
+    dragIndexRef.current = null
+    setDragOverIdx(null)
+    if (from === null || from === idx) return
+    setStaged((prev) => {
+      const next = [...prev]
+      const [item] = next.splice(from, 1)
+      next.splice(idx, 0, item)
+      return next
+    })
+  }, [])
+
+  const onDragEnd = useCallback(() => {
+    dragIndexRef.current = null
+    setDragOverIdx(null)
+  }, [])
+
+  const addAllToQueue = useCallback(async () => {
+    if (!staged.length || !roomId || adding) return
+    setAdding(true)
+    try {
+      for (const song of staged) {
+        const key = await addSong(roomId, {
+          videoId: song.videoId,
+          title: song.title,
+          thumbnail: song.thumbnail,
+          artist: song.artist,
+          addedBy: getDisplayName() || 'Guest',
+          addedByUserId: getUserId(),
+        })
+        void (async () => {
+          try {
+            const artUrl = await resolveCoverArtFromMusicBrainz(song)
+            if (!artUrl) return
+            const ok = await preloadImage(artUrl)
+            if (!ok) return
+            await patchQueueSong(roomId, key, { thumbnail: artUrl })
+          } catch { /* ignore background enrichment errors */ }
+        })()
       }
-    })()
-  }
+      handleClose()
+    } catch {
+      setAdding(false)
+    }
+  }, [staged, roomId, adding, handleClose])
 
   const flushSearch = () => {
     const trimmed = q.trim()
     if (trimmed.length < MIN_QUERY_LEN) return
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = null
-    }
+    if (debounceTimerRef.current) { clearTimeout(debounceTimerRef.current); debounceTimerRef.current = null }
     runSearch(trimmed)
   }
 
@@ -417,10 +453,7 @@ export default function SearchModal({ roomId, open, onClose }) {
     setQ(v)
     if (v.trim().length < MIN_QUERY_LEN) {
       searchSeq.current += 1
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
+      if (debounceTimerRef.current) { clearTimeout(debounceTimerRef.current); debounceTimerRef.current = null }
       setResults([])
       setError(null)
       setLoading(false)
@@ -429,132 +462,209 @@ export default function SearchModal({ roomId, open, onClose }) {
 
   if (!open) return null
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 pt-[10vh]"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add song"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-aux-border bg-aux-surface shadow-2xl shadow-black/50">
-        <div className="flex items-center justify-between border-b border-aux-border px-4 py-3">
-          <h2 className="text-lg font-bold text-white">Add a song</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            ✕
-          </button>
+  const stagedIds = new Set(staged.map((s) => s.videoId))
+
+  // Shared sidebar content rendered inside both mobile + desktop containers
+  const sidebarInner = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-aux-border px-4 py-3">
+        <div>
+          <h2 className="text-lg font-bold text-white">Add songs</h2>
+          {staged.length > 0 && (
+            <p className="text-xs font-medium text-aux-mint">{staged.length} queued</p>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={handleClose}
+          className="rounded-lg px-2 py-1 text-white/60 hover:bg-white/10 hover:text-white"
+        >
+          ✕
+        </button>
+      </div>
 
-        <div className="flex gap-2 border-b border-aux-border p-3">
-          <input
-            value={q}
-            onChange={onQueryChange}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') flushSearch()
-            }}
-            placeholder="Search for a song…"
-            className="min-w-0 flex-1 rounded-xl border border-aux-border bg-black/30 px-3 py-2.5 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
-            autoFocus
-          />
-          <div
-            className="flex w-10 shrink-0 items-center justify-center"
-            aria-hidden={!loading}
-          >
-            {loading ? (
-              <span
-                className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-aux-mint"
-                aria-label="Loading"
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {error && (
-            <div className="mb-2 rounded-lg bg-aux-coral/15 px-3 py-2 text-sm text-aux-coral">
-              <p className="whitespace-pre-line">{error}</p>
-              {/quota|youtube daily/i.test(error) ? (
-                <a
-                  href={QUOTA_HELP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block text-xs font-semibold text-aux-mint underline hover:brightness-110"
-                >
-                  Open YouTube API quotas in Google Cloud
-                </a>
-              ) : null}
-            </div>
-          )}
-
-          {loading && results.length === 0 && !error && q.trim().length >= MIN_QUERY_LEN && (
-            <p className="text-center text-sm text-white/45">Searching…</p>
-          )}
-
-          {results.length > 0 && (
-            <div className="mb-2 flex gap-3 text-[10px] font-semibold uppercase tracking-wider text-white/35">
-              <span className="flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
-                From YouTube
-              </span>
-            </div>
-          )}
-
-          <ul className="space-y-2">
-            {results.map((item, index) => {
-              const highPopularity =
-                (item.popularityScore || 0) >= HIGH_POPULARITY_THRESHOLD
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => pick(item)}
-                    className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors hover:border-aux-mint/40 ${
-                      highPopularity
-                        ? 'border-aux-mint/25 bg-aux-mint/[0.07] hover:bg-aux-mint/10'
-                        : 'border-transparent bg-black/25 hover:bg-black/40'
-                    }`}
-                  >
-                    <img
-                      src={item.thumbnail}
-                      alt=""
-                      className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="line-clamp-1 font-medium text-white">
-                          {item.title}
-                        </p>
-                        {index === 0 && (
-                          <span className="shrink-0 rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                            Best match
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-2">
-                        <p className="min-w-0 truncate text-xs text-white/50">
-                          {item.artist}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="max-w-[8.5rem] shrink-0 text-right text-[10px] font-semibold tabular-nums leading-snug text-white/70">
-                      {item.popularityLabel}
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+      {/* Search bar */}
+      <div className="shrink-0 flex gap-2 border-b border-aux-border p-3">
+        <input
+          ref={searchInputRef}
+          value={q}
+          onChange={onQueryChange}
+          onKeyDown={(e) => { if (e.key === 'Enter') flushSearch() }}
+          placeholder="Search for a song…"
+          className="min-w-0 flex-1 rounded-xl border border-aux-border bg-black/30 px-3 py-2.5 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+        />
+        <div className="flex w-10 shrink-0 items-center justify-center" aria-hidden={!loading}>
+          {loading ? (
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-aux-mint" aria-label="Loading" />
+          ) : null}
         </div>
       </div>
+
+      {/* Search results — scrollable, stays visible after picking */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {error && (
+          <div className="mb-2 rounded-lg bg-aux-coral/15 px-3 py-2 text-sm text-aux-coral">
+            <p className="whitespace-pre-line">{error}</p>
+            {/quota|youtube daily/i.test(error) ? (
+              <a
+                href={QUOTA_HELP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs font-semibold text-aux-mint underline hover:brightness-110"
+              >
+                Open YouTube API quotas in Google Cloud
+              </a>
+            ) : null}
+          </div>
+        )}
+
+        {loading && results.length === 0 && !error && q.trim().length >= MIN_QUERY_LEN && (
+          <p className="text-center text-sm text-white/45">Searching…</p>
+        )}
+
+        {results.length > 0 && (
+          <div className="mb-2 flex gap-3 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
+              From YouTube
+            </span>
+          </div>
+        )}
+
+        <ul className="space-y-2">
+          {results.map((item, index) => {
+            const highPopularity = (item.popularityScore || 0) >= HIGH_POPULARITY_THRESHOLD
+            const isStaged = stagedIds.has(item.videoId)
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => pick(item)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors ${
+                    isStaged
+                      ? 'border-aux-mint/40 bg-aux-mint/[0.10] hover:bg-aux-mint/[0.14]'
+                      : highPopularity
+                        ? 'border-aux-mint/25 bg-aux-mint/[0.07] hover:bg-aux-mint/10'
+                        : 'border-transparent bg-black/25 hover:bg-black/40 hover:border-aux-mint/40'
+                  }`}
+                >
+                  <img src={item.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="line-clamp-1 font-medium text-white">{item.title}</p>
+                      {index === 0 && !isStaged && (
+                        <span className="shrink-0 rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                          Best match
+                        </span>
+                      )}
+                      {isStaged && (
+                        <span className="shrink-0 rounded-full bg-aux-mint/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-mint">
+                          ✓ Staged
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 min-w-0 truncate text-xs text-white/50">{item.artist}</p>
+                  </div>
+                  <span className="max-w-[8.5rem] shrink-0 text-right text-[10px] font-semibold tabular-nums leading-snug text-white/70">
+                    {item.popularityLabel}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      {/* Staged queue — shown when songs are staged */}
+      {staged.length > 0 && (
+        <div className="shrink-0 border-t border-aux-border bg-black/20">
+          <div className="px-3 pt-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+              Queue order ({staged.length})
+            </p>
+            <div className="max-h-[190px] space-y-0.5 overflow-y-auto">
+              {staged.map((song, idx) => (
+                <div
+                  key={song.stagedId}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, idx)}
+                  onDragOver={(e) => onDragOver(e, idx)}
+                  onDrop={(e) => onDrop(e, idx)}
+                  onDragEnd={onDragEnd}
+                  className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 transition-colors active:cursor-grabbing ${
+                    dragOverIdx === idx
+                      ? 'border-t-2 border-t-aux-mint bg-white/10'
+                      : 'border-t-2 border-t-transparent bg-white/5 hover:bg-white/8'
+                  }`}
+                >
+                  <DragHandle />
+                  <img src={song.thumbnail} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{song.title}</p>
+                    <p className="truncate text-xs text-white/45">{song.artist}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeStaged(song.stagedId)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white/40 transition-colors hover:bg-white/10 hover:text-aux-coral"
+                    aria-label={`Remove ${song.title}`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                      <path d="M2.22 2.22a.75.75 0 0 1 1.06 0L6 4.94l2.72-2.72a.75.75 0 1 1 1.06 1.06L7.06 6l2.72 2.72a.75.75 0 1 1-1.06 1.06L6 7.06 3.28 9.78a.75.75 0 0 1-1.06-1.06L4.94 6 2.22 3.28a.75.75 0 0 1 0-1.06Z" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="px-3 pb-3 pt-2">
+            <button
+              type="button"
+              onClick={addAllToQueue}
+              disabled={adding}
+              className="w-full rounded-xl bg-aux-mint py-3 text-sm font-bold text-black hover:brightness-110 disabled:opacity-50"
+            >
+              {adding ? 'Adding…' : `Add ${staged.length} song${staged.length !== 1 ? 's' : ''} to Queue`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  )
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
+        aria-hidden
+        onClick={handleClose}
+      />
+
+      {/* Mobile: bottom sheet */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[100] flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border-t border-aux-border bg-[#0f0f11] sm:hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add songs"
+      >
+        {/* Drag handle bar */}
+        <div className="flex shrink-0 justify-center pb-1 pt-2.5">
+          <div className="h-1 w-10 rounded-full bg-white/20" />
+        </div>
+        {sidebarInner}
+      </div>
+
+      {/* Desktop: right sidebar */}
+      <div
+        className="fixed bottom-0 right-0 top-0 z-[100] hidden w-[420px] flex-col overflow-hidden border-l border-aux-border bg-[#0f0f11] sm:flex"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add songs"
+      >
+        {sidebarInner}
+      </div>
+    </>
   )
 }

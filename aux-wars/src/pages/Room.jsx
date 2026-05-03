@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import confetti from 'canvas-confetti'
 import { useRoom } from '../hooks/useRoom'
 import { useQueue } from '../hooks/useQueue'
 import { useVoting } from '../hooks/useVoting'
@@ -41,8 +40,6 @@ export default function Room() {
   const [copied, setCopied] = useState(false)
   // 'swipe' | 'list' — only relevant on mobile
   const [voteTab, setVoteTab] = useState('swipe')
-  const prevVideoRef = useRef(undefined)
-
   useEffect(() => {
     if (!roomId || !displayName.trim()) return undefined
     upsertUser(roomId, userId, displayName.trim()).catch(console.error)
@@ -111,19 +108,6 @@ export default function Room() {
     },
     [roomId],
   )
-
-  useEffect(() => {
-    const v = room?.nowPlaying?.videoId
-    if (v && prevVideoRef.current !== undefined && prevVideoRef.current !== v) {
-      confetti({
-        particleCount: 90,
-        spread: 70,
-        origin: { y: 0.35 },
-        colors: ['#1ed760', '#ffffff', '#c084fc'],
-      })
-    }
-    prevVideoRef.current = v
-  }, [room?.nowPlaying?.videoId])
 
   // Persist roomId so Landing can auto-fill on return
   useEffect(() => {
