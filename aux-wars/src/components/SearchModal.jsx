@@ -233,6 +233,8 @@ export default function SearchModal({
   const dragStartYRef = useRef(0)
   const draggedRowRef = useRef(null)
   const searchInputRef = useRef(null)
+  const windowMoveHandlerRef = useRef(null)
+  const windowUpHandlerRef = useRef(null)
 
   // Focus input when opened
   useEffect(() => {
@@ -241,7 +243,20 @@ export default function SearchModal({
     }
   }, [open])
 
+  const detachWindowDragListeners = useCallback(() => {
+    if (windowMoveHandlerRef.current) {
+      window.removeEventListener('pointermove', windowMoveHandlerRef.current)
+      windowMoveHandlerRef.current = null
+    }
+    if (windowUpHandlerRef.current) {
+      window.removeEventListener('pointerup', windowUpHandlerRef.current)
+      window.removeEventListener('pointercancel', windowUpHandlerRef.current)
+      windowUpHandlerRef.current = null
+    }
+  }, [])
+
   const handleClose = useCallback(() => {
+    detachWindowDragListeners()
     setStaged([])
     setQ('')
     setResults([])
@@ -267,7 +282,7 @@ export default function SearchModal({
     setDraggingIndexState(null)
     setHoverIndexState(null)
     onClose()
-  }, [onClose])
+  }, [onClose, detachWindowDragListeners])
 
   useEffect(() => {
     if (!open || canRequestSongs) return
@@ -440,15 +455,8 @@ export default function SearchModal({
     return nextHover
   }, [])
 
-  const finishReorder = useCallback((logTouch = false) => {
-    if (dragIndex.current === null || hoverIndex.current === null) {
-      dragIndex.current = null
-      hoverIndex.current = null
-      activePointerIdRef.current = null
-      setDraggingIndexState(null)
-      setHoverIndexState(null)
-      return
-    }
+  const finishReorder = useCallback(() => {
+    detachWindowDragListeners()
     const from = dragIndex.current
     const to = hoverIndex.current
     if (draggedRowRef.current) {
@@ -459,8 +467,7 @@ export default function SearchModal({
       draggedRowRef.current.style.zIndex = ''
       draggedRowRef.current = null
     }
-    if (logTouch) console.log(from, to)
-    if (from !== to) {
+    if (from !== null && to !== null && from !== to) {
       setStaged((prev) => {
         const next = [...prev]
         const [moved] = next.splice(from, 1)
@@ -475,12 +482,19 @@ export default function SearchModal({
     dragStartYRef.current = 0
     setDraggingIndexState(null)
     setHoverIndexState(null)
-  }, [])
+  }, [detachWindowDragListeners])
 
+  // Attach window listeners SYNCHRONOUSLY inside pointerdown — not via useEffect.
+  // useEffect runs after React re-renders, which on mobile happens AFTER the first
+  // pointermove fires, so the listener would never see the start of the drag.
   const onHandlePointerDown = useCallback((e, idx) => {
     e.preventDefault()
     const row = e.currentTarget.closest('.queue-item')
     if (!row) return
+
+    // Tear down any leftover listeners from a previous drag
+    detachWindowDragListeners()
+
     activePointerIdRef.current = e.pointerId
     draggedRowRef.current = row
     dragStartYRef.current = e.clientY
@@ -491,41 +505,32 @@ export default function SearchModal({
     draggedRowRef.current.style.transform = 'translateY(0px) scale(1.03)'
     dragIndex.current = idx
     hoverIndex.current = idx
-    setDraggingIndexState(idx)
-    setHoverIndexState(idx)
-  }, [])
 
-  // Attach move/up/cancel to window for the duration of a drag so the
-  // handlers fire even when the pointer leaves the tiny drag-handle button.
-  // This is the only reliable approach on mobile (iOS Safari ignores
-  // setPointerCapture in scrollable containers).
-  useEffect(() => {
-    if (draggingIndexState === null) return
-
-    const onMove = (e) => {
-      if (activePointerIdRef.current !== e.pointerId) return
+    const onMove = (ev) => {
+      if (activePointerIdRef.current !== ev.pointerId) return
       if (!draggedRowRef.current || dragIndex.current === null) return
-      e.preventDefault()
-      const clientY = e.clientY
+      ev.preventDefault()
+      const clientY = ev.clientY
       updateHoverIndexFromY(clientY)
       draggedRowRef.current.style.transform =
         `translateY(${clientY - dragStartYRef.current}px) scale(1.03)`
     }
 
-    const onUp = (e) => {
-      if (activePointerIdRef.current !== e.pointerId) return
-      finishReorder(false)
+    const onUp = (ev) => {
+      if (activePointerIdRef.current !== ev.pointerId) return
+      finishReorder()
     }
 
+    windowMoveHandlerRef.current = onMove
+    windowUpHandlerRef.current = onUp
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-    }
-  }, [draggingIndexState, updateHoverIndexFromY, finishReorder])
+
+    // Trigger visual drag state (re-render for highlighting / shift animations)
+    setDraggingIndexState(idx)
+    setHoverIndexState(idx)
+  }, [updateHoverIndexFromY, finishReorder, detachWindowDragListeners])
 
   const addAllToQueue = useCallback(async () => {
     if (!staged.length || !roomId || adding) return
