@@ -17,7 +17,7 @@ import VibeLeaderboard, {
   PlayHistorySection,
 } from '../components/VibeLeaderboard'
 import SwipeStack from '../components/SwipeCard'
-import SearchModal from '../components/SearchModal'
+import AddSongSidebar from '../components/AddSongSidebar'
 import UserList from '../components/UserList'
 import HallOfShame from '../components/HallOfShame'
 
@@ -173,12 +173,16 @@ export default function Room() {
   const settings = room?.settings || {}
   const allowSkip = settings.allowSkip !== false
   const allowPause = settings.allowPause !== false
-  const playOnAllDevices = settings.playOnAllDevices !== false
+  const allowGuestRequests =
+    settings.allowGuestRequests !== false && settings.allowRequests !== false
+  const playOnEveryDevice =
+    settings.playOnEveryDevice !== false && settings.playOnAllDevices !== false
+  const canAddSongs = isHost || allowGuestRequests
   const unvotedQueue = queueSorted.filter((s) => !getMyVote(s.id))
 
   return (
     <div className="min-h-svh bg-gradient-to-b from-aux-bg via-[#101012] to-aux-bg">
-      <header className="sticky top-0 z-20 border-b border-aux-border bg-[#0d0d0f]/90 px-4 py-3 backdrop-blur-md">
+      <header className="sticky top-0 z-10 border-b border-aux-border bg-[#0d0d0f]/90 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-sm font-semibold text-white/50 hover:text-white">
@@ -204,8 +208,14 @@ export default function Room() {
             </button>
             <button
               type="button"
-              onClick={() => setSearchOpen(true)}
-              className="rounded-xl bg-aux-mint px-4 py-2 text-sm font-bold text-black hover:brightness-110"
+              onClick={() => canAddSongs && setSearchOpen(true)}
+              disabled={!canAddSongs}
+              title={
+                !canAddSongs
+                  ? 'Only the host can add songs in this room'
+                  : undefined
+              }
+              className="rounded-xl bg-aux-mint px-4 py-2 text-sm font-bold text-black hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
             >
               Add song
             </button>
@@ -243,7 +253,7 @@ export default function Room() {
               isHost={isHost}
               allowSkip={allowSkip}
               allowPause={allowPause}
-              playOnAllDevices={playOnAllDevices}
+              playOnAllDevices={playOnEveryDevice}
               roomId={roomId}
             />
             <UserList
@@ -284,7 +294,11 @@ export default function Room() {
 
             {/* Swipe view: active on mobile when swipe tab, always on desktop */}
             <div className={`${voteTab === 'swipe' ? 'block' : 'hidden'} lg:block`}>
-              <SwipeStack items={unvotedQueue} onVote={vote} onAddSong={() => setSearchOpen(true)} />
+              <SwipeStack
+                items={unvotedQueue}
+                onVote={vote}
+                onAddSong={canAddSongs ? () => setSearchOpen(true) : undefined}
+              />
             </div>
 
             {/* Leaderboard: active on mobile when list tab, always on desktop */}
@@ -310,7 +324,7 @@ export default function Room() {
         </div>
       </main>
 
-      <SearchModal
+      <AddSongSidebar
         roomId={roomId}
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

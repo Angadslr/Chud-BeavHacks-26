@@ -386,9 +386,9 @@ function NowPlayingActive({
     return () => window.clearInterval(id)
   }, [isHost, roomId])
 
-  // Guest in playOnAllDevices mode: subscribe and seek if drift > 3 s
+  // All devices with a player: mirror Firebase playback (position + isPlaying)
   useEffect(() => {
-    if (isHost || !roomId || !playOnAllDevices) return
+    if (!roomId || !playOnAllDevices) return
     return subscribePlayback(roomId, (data) => {
       if (!data) return
       const p = playerRef.current
@@ -410,7 +410,7 @@ function NowPlayingActive({
         /* noop */
       }
     })
-  }, [isHost, roomId, playOnAllDevices])
+  }, [roomId, playOnAllDevices])
 
   const seekFromClientX = useCallback(
     (clientX) => {
@@ -478,6 +478,21 @@ function NowPlayingActive({
     [endScrub],
   )
 
+  const syncPlaybackToFirebase = useCallback(() => {
+    if (!roomId) return
+    const p = playerRef.current
+    if (!p || typeof p.getPlayerState !== 'function') return
+    try {
+      const st = p.getPlayerState()
+      const playing = st === YT_PLAYING || st === YT_BUFFERING
+      const ct = p.getCurrentTime()
+      const d = p.getDuration()
+      updatePlaybackSync(roomId, ct, d, playing).catch(() => {})
+    } catch {
+      /* noop */
+    }
+  }, [roomId])
+
   const togglePlayPause = useCallback(() => {
     const p = playerRef.current
     if (!p) return
@@ -489,10 +504,11 @@ function NowPlayingActive({
         p.playVideo()
         setAutoplayBlocked(false)
       }
+      window.requestAnimationFrame(() => syncPlaybackToFirebase())
     } catch {
       /* noop */
     }
-  }, [])
+  }, [syncPlaybackToFirebase])
 
   const handleSkip = useCallback(() => {
     if (!skipEnabled) return
@@ -523,11 +539,12 @@ function NowPlayingActive({
       try {
         p.playVideo()
         setAutoplayBlocked(false)
+        window.requestAnimationFrame(() => syncPlaybackToFirebase())
       } catch {
         /* noop */
       }
     }
-  }, [])
+  }, [syncPlaybackToFirebase])
 
   return (
     <>
@@ -539,7 +556,7 @@ function NowPlayingActive({
       />
 
       {/* Mobile mini-player (< sm) */}
-      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
+      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
           <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
         </div>
@@ -549,39 +566,55 @@ function NowPlayingActive({
           </p>
           <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>
         </div>
-        {autoplayBlocked ? (
-          <button
-            type="button"
-            onClick={tapToPlay}
-            className="shrink-0 rounded-full bg-aux-mint px-3 py-1.5 text-xs font-bold text-black"
-          >
-            Tap to play
-          </button>
-        ) : allowPause ? (
-          <button
-            type="button"
-            onClick={togglePlayPause}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black shadow transition-transform active:scale-95"
-            aria-label={showPlaying ? 'Pause' : 'Play'}
-          >
-            {showPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-        ) : null}
-        {isHost && allowSkip && (
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={!skipEnabled}
-            title={skipTitle}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
-            aria-label="Skip song"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M3 2L11 8L3 14V2Z" />
-              <rect x="12" y="2" width="2" height="12" rx="1" />
-            </svg>
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {prevEnabled && (
+            <button
+              type="button"
+              onClick={handlePrevious}
+              title="Restart song, or go to previous if within 5 seconds"
+              className="flex h-11 min-h-[44px] w-11 min-w-[44px] items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 active:scale-95"
+              aria-label="Previous / restart track"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <rect x="2" y="2" width="2" height="12" rx="1" />
+                <path d="M13 2L5 8L13 14V2Z" />
+              </svg>
+            </button>
+          )}
+          {autoplayBlocked ? (
+            <button
+              type="button"
+              onClick={tapToPlay}
+              className="flex h-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-aux-mint px-3 text-xs font-bold text-black"
+            >
+              Tap to play
+            </button>
+          ) : allowPause ? (
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full bg-white text-black shadow transition-transform active:scale-95"
+              aria-label={showPlaying ? 'Pause' : 'Play'}
+            >
+              {showPlaying ? <PauseIcon /> : <PlayIcon />}
+            </button>
+          ) : null}
+          {isHost && allowSkip && (
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={!skipEnabled}
+              title={skipTitle}
+              className="flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
+              aria-label="Skip song"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M3 2L11 8L3 14V2Z" />
+                <rect x="12" y="2" width="2" height="12" rx="1" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Desktop full player (≥ sm) */}
@@ -628,8 +661,10 @@ function NowPlayingActive({
                     className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/65"
                     aria-label="Tap to play"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl text-white">
-                      ▶
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white">
+                      <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                        <path d="M4 2L14 8L4 14V2Z" />
+                      </svg>
                     </div>
                     <span className="mt-2 text-sm font-semibold text-white">
                       Tap to play

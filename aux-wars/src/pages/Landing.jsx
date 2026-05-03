@@ -44,8 +44,8 @@ function Toggle({ checked, onChange, label, sublabel }) {
 function RoomSettingsModal({ name, onStart, onBack, busy }) {
   const [allowSkip, setAllowSkip] = useState(true)
   const [allowPause, setAllowPause] = useState(true)
-  const [allowRequests, setAllowRequests] = useState(true)
-  const [playOnAllDevices, setPlayOnAllDevices] = useState(true)
+  const [allowGuestRequests, setAllowGuestRequests] = useState(true)
+  const [playOnEveryDevice, setPlayOnEveryDevice] = useState(true)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -80,18 +80,18 @@ function RoomSettingsModal({ name, onStart, onBack, busy }) {
           />
           <div className="h-px bg-white/7" />
           <Toggle
-            checked={allowRequests}
-            onChange={setAllowRequests}
+            checked={allowGuestRequests}
+            onChange={setAllowGuestRequests}
             label="Allow song requests from guests"
             sublabel="Let participants add songs to the queue"
           />
           <div className="h-px bg-white/7" />
           <Toggle
-            checked={playOnAllDevices}
-            onChange={setPlayOnAllDevices}
+            checked={playOnEveryDevice}
+            onChange={setPlayOnEveryDevice}
             label="Play music on everyone's device"
             sublabel={
-              playOnAllDevices
+              playOnEveryDevice
                 ? 'YouTube plays on all devices simultaneously'
                 : "Music plays on host's device only — guests see song info"
             }
@@ -100,7 +100,14 @@ function RoomSettingsModal({ name, onStart, onBack, busy }) {
 
         <button
           type="button"
-          onClick={() => onStart({ allowSkip, allowPause, allowRequests, playOnAllDevices })}
+          onClick={() =>
+            onStart({
+              allowSkip,
+              allowPause,
+              allowGuestRequests,
+              playOnEveryDevice,
+            })
+          }
           disabled={busy}
           className="mt-8 w-full rounded-xl bg-aux-mint py-4 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
         >

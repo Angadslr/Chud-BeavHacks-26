@@ -29,6 +29,12 @@ export function roomRef(roomId) {
 
 export function createRoom(roomId, hostId, settings = {}) {
   const now = Date.now()
+  const allowGuestRequests =
+    settings.allowGuestRequests !== false &&
+    settings.allowRequests !== false
+  const playOnEveryDevice =
+    settings.playOnEveryDevice !== false &&
+    settings.playOnAllDevices !== false
   return set(roomRef(roomId), {
     createdAt: now,
     lastActivityAt: now,
@@ -36,8 +42,10 @@ export function createRoom(roomId, hostId, settings = {}) {
     settings: {
       allowSkip: settings.allowSkip !== false,
       allowPause: settings.allowPause !== false,
-      allowRequests: settings.allowRequests !== false,
-      playOnAllDevices: settings.playOnAllDevices !== false,
+      allowGuestRequests,
+      playOnEveryDevice,
+      allowRequests: allowGuestRequests,
+      playOnAllDevices: playOnEveryDevice,
     },
     nowPlaying: null,
     previousTrack: null,
@@ -125,6 +133,15 @@ export async function addSong(roomId, payload) {
   })
   await update(ref(requireDb(), `rooms/${roomId}`), { lastActivityAt: Date.now() })
   return newRef.key
+}
+
+/** Append multiple songs in order (sequential writes preserve queue order). */
+export async function addSongsInOrder(roomId, payloads) {
+  const keys = []
+  for (const payload of payloads) {
+    keys.push(await addSong(roomId, payload))
+  }
+  return keys
 }
 
 /** Shallow-merge fields on one queue item (e.g. upgrade thumbnail after async cover lookup). */

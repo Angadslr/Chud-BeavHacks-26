@@ -253,33 +253,54 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
         : items.length === 0
           ? 'Tap to add the first song'
           : "You've voted on everything!"
-    const isAddable = items.length === 0 && Boolean(onAddSong)
+    const noValidButQueued = eligibleItems.length === 0 && items.length > 0
+    const isAddable =
+      Boolean(onAddSong) && (items.length === 0 || noValidButQueued)
 
     return (
       <div
-        className={`flex min-h-[30vh] flex-col items-center justify-center gap-3 rounded-[20px] border border-aux-border bg-aux-surface/80 transition-colors ${
-          isAddable ? 'cursor-pointer hover:bg-aux-surface active:bg-aux-surface/60' : ''
+        className={`flex min-h-[30vh] flex-col items-center justify-center gap-3 rounded-[20px] px-4 py-8 transition-colors ${
+          isAddable
+            ? 'cursor-pointer border-2 border-dashed border-white/25 bg-aux-surface/50 hover:border-aux-mint/35 hover:bg-aux-surface/80 active:bg-aux-surface/60'
+            : 'border border-aux-border bg-aux-surface/80'
         }`}
         onClick={isAddable ? onAddSong : undefined}
         role={isAddable ? 'button' : undefined}
         tabIndex={isAddable ? 0 : undefined}
-        onKeyDown={isAddable ? (e) => (e.key === 'Enter' || e.key === ' ') && onAddSong() : undefined}
+        onKeyDown={
+          isAddable ? (e) => (e.key === 'Enter' || e.key === ' ') && onAddSong() : undefined
+        }
       >
         {isAddable && (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-white/40" aria-hidden>
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-white/30 bg-white/5">
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                className="text-white/50"
+                aria-hidden
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-white/35">
+              Add songs
+            </span>
           </div>
         )}
-        <p className="text-sm text-white/40">{emptyMsg}</p>
+        <p className="text-center text-sm text-white/45">{emptyMsg}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="relative z-[1] space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-left text-sm font-semibold uppercase tracking-wider text-white/45">
           Vote on every track
@@ -290,7 +311,7 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
       </div>
 
       <div
-        className="relative mx-auto w-full max-w-md"
+        className="relative z-[1] mx-auto w-full max-w-md overflow-hidden rounded-[20px]"
         style={{ minHeight: '65vh', height: '65vh' }}
       >
         {[...visible].reverse().map((song, revIdx) => {
@@ -305,7 +326,7 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
               style={{
                 position: 'absolute',
                 inset: 0,
-                zIndex: 10 - stackIdx,
+                zIndex: 3 - stackIdx,
                 transform: isTop
                   ? undefined
                   : `scale(${scale}) translateY(${translateY}px)`,
