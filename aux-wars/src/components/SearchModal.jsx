@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { addSong } from '../firebase/roomService'
 import ArtworkImage from './ArtworkImage'
 import { resolveArtworkUrlForSong } from '../lib/artworkResolve'
@@ -205,21 +205,33 @@ function DragHandle() {
   )
 }
 
-export default function SearchModal({ roomId, open, onClose }) {
+export default function SearchModal({
+  roomId,
+  open,
+  onClose,
+  canRequestSongs = true,
+  onGuestRequestsBlocked,
+}) {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState([])
   const [error, setError] = useState(null)
   const [staged, setStaged] = useState([])
   const [adding, setAdding] = useState(false)
-  const [dragOverIdx, setDragOverIdx] = useState(null)
+  const [draggingIndexState, setDraggingIndexState] = useState(null)
+  const [hoverIndexState, setHoverIndexState] = useState(null)
 
   const searchSeq = useRef(0)
   const debounceTimerRef = useRef(null)
   const searchCacheRef = useRef([])
   const lastGoodResultsRef = useRef([])
   const youtubeQuotaBackoffUntilRef = useRef(0)
-  const dragIndexRef = useRef(null)
+  const dragIndex = useRef(null)
+  const hoverIndex = useRef(null)
+  const listRef = useRef(null)
+  const activePointerIdRef = useRef(null)
+  const dragStartYRef = useRef(0)
+  const draggedRowRef = useRef(null)
   const searchInputRef = useRef(null)
 
   // Focus input when opened
@@ -240,8 +252,28 @@ export default function SearchModal({ roomId, open, onClose }) {
       clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = null
     }
+    dragIndex.current = null
+    hoverIndex.current = null
+    activePointerIdRef.current = null
+    dragStartYRef.current = 0
+    if (draggedRowRef.current) {
+      draggedRowRef.current.style.transform = ''
+      draggedRowRef.current.style.willChange = ''
+      draggedRowRef.current.style.transition = ''
+      draggedRowRef.current.style.position = ''
+      draggedRowRef.current.style.zIndex = ''
+      draggedRowRef.current = null
+    }
+    setDraggingIndexState(null)
+    setHoverIndexState(null)
     onClose()
   }, [onClose])
+
+  useEffect(() => {
+    if (!open || canRequestSongs) return
+    handleClose()
+    onGuestRequestsBlocked?.()
+  }, [open, canRequestSongs, handleClose, onGuestRequestsBlocked])
 
   const runSearch = useCallback(async (query) => {
     const ytKey = import.meta.env.VITE_YOUTUBE_API_KEY
@@ -364,36 +396,109 @@ export default function SearchModal({ roomId, open, onClose }) {
     setStaged((prev) => prev.filter((s) => s.stagedId !== stagedId))
   }, [])
 
-  // Drag-to-reorder handlers
-  const onDragStart = useCallback((e, idx) => {
-    dragIndexRef.current = idx
-    e.dataTransfer.effectAllowed = 'move'
+  const updateHoverIndexFromY = useCallback((clientY, thresholdFactor = 0.5) => {
+    const list = listRef.current
+    if (!list) return null
+    const rows = Array.from(list.querySelectorAll('.queue-item'))
+    if (rows.length === 0) return null
+    let nextHover = rows.length
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect()
+      const idx = Number(row.getAttribute('data-queue-index'))
+      if (Number.isNaN(idx)) continue
+      const midpoint = rect.top + rect.height * thresholdFactor
+      if (clientY < midpoint) {
+        nextHover = idx
+        break
+      }
+    }
+    if (hoverIndex.current !== nextHover) {
+      hoverIndex.current = nextHover
+      setHoverIndexState(nextHover)
+      try {
+        if (navigator.vibrate) navigator.vibrate(30)
+      } catch {
+        /* noop */
+      }
+    }
+    return nextHover
   }, [])
 
-  const onDragOver = useCallback((e, idx) => {
+  const finishReorder = useCallback((logTouch = false) => {
+    if (dragIndex.current === null || hoverIndex.current === null) {
+      dragIndex.current = null
+      hoverIndex.current = null
+      activePointerIdRef.current = null
+      setDraggingIndexState(null)
+      setHoverIndexState(null)
+      return
+    }
+    const from = dragIndex.current
+    const to = hoverIndex.current
+    if (draggedRowRef.current) {
+      draggedRowRef.current.style.transform = ''
+      draggedRowRef.current.style.willChange = ''
+      draggedRowRef.current.style.transition = ''
+      draggedRowRef.current.style.position = ''
+      draggedRowRef.current.style.zIndex = ''
+      draggedRowRef.current = null
+    }
+    if (logTouch) console.log(from, to)
+    if (from !== to) {
+      setStaged((prev) => {
+        const next = [...prev]
+        const [moved] = next.splice(from, 1)
+        next.splice(to, 0, moved)
+        return next
+      })
+    }
+    dragIndex.current = null
+    hoverIndex.current = null
+    activePointerIdRef.current = null
+    dragStartYRef.current = 0
+    setDraggingIndexState(null)
+    setHoverIndexState(null)
+  }, [])
+
+  const onHandlePointerDown = useCallback((e, idx) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setDragOverIdx(idx)
+    const row = e.currentTarget.closest('.queue-item')
+    if (!row) return
+    activePointerIdRef.current = e.pointerId
+    e.currentTarget.setPointerCapture(e.pointerId)
+    draggedRowRef.current = row
+    dragStartYRef.current = e.clientY
+    draggedRowRef.current.style.willChange = 'transform'
+    draggedRowRef.current.style.transition = 'none'
+    draggedRowRef.current.style.position = 'relative'
+    draggedRowRef.current.style.zIndex = '50'
+    draggedRowRef.current.style.transform = 'translateY(0px) scale(1.03)'
+
+    dragIndex.current = idx
+    hoverIndex.current = idx
+    setDraggingIndexState(idx)
+    setHoverIndexState(idx)
   }, [])
 
-  const onDrop = useCallback((e, idx) => {
+  const onHandlePointerMove = useCallback((e) => {
+    if (activePointerIdRef.current !== e.pointerId) return
+    if (!draggedRowRef.current || dragIndex.current === null) return
     e.preventDefault()
-    const from = dragIndexRef.current
-    dragIndexRef.current = null
-    setDragOverIdx(null)
-    if (from === null || from === idx) return
-    setStaged((prev) => {
-      const next = [...prev]
-      const [item] = next.splice(from, 1)
-      next.splice(idx, 0, item)
-      return next
-    })
-  }, [])
+    const clientY = e.clientY
+    if (Math.abs(clientY - dragStartYRef.current) > 8) {
+      updateHoverIndexFromY(clientY, 0.6)
+    }
+    const deltaY = clientY - dragStartYRef.current
+    draggedRowRef.current.style.transform = `translateY(${deltaY}px) scale(1.03)`
+  }, [updateHoverIndexFromY])
 
-  const onDragEnd = useCallback(() => {
-    dragIndexRef.current = null
-    setDragOverIdx(null)
-  }, [])
+  const onHandlePointerUp = useCallback((e) => {
+    if (activePointerIdRef.current !== e.pointerId) return
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    finishReorder(false)
+  }, [finishReorder])
 
   const addAllToQueue = useCallback(async () => {
     if (!staged.length || !roomId || adding) return
@@ -571,22 +676,64 @@ export default function SearchModal({ roomId, open, onClose }) {
             <p className="app-label mb-2 !tracking-[0.12em]">
               Queue order ({staged.length})
             </p>
-            <div className="max-h-[190px] space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-              {staged.map((song, idx) => (
+            <div
+              ref={listRef}
+              className="max-h-[190px] space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {staged.map((song, idx) => {
+                const isDragging = draggingIndexState === idx
+                const shouldShiftDown =
+                  draggingIndexState !== null &&
+                  hoverIndexState !== null &&
+                  idx >= hoverIndexState &&
+                  idx < draggingIndexState
+                const shouldShiftUp =
+                  draggingIndexState !== null &&
+                  hoverIndexState !== null &&
+                  idx > draggingIndexState &&
+                  idx <= hoverIndexState
+                return (
+                <Fragment key={song.stagedId}>
+                {draggingIndexState !== null && hoverIndexState === idx ? (
+                  <div
+                    className="h-[2px] w-full bg-emerald-400 transition-transform duration-200 ease-out"
+                    aria-hidden
+                  />
+                ) : null}
                 <div
-                  key={song.stagedId}
-                  draggable
-                  onDragStart={(e) => onDragStart(e, idx)}
-                  onDragOver={(e) => onDragOver(e, idx)}
-                  onDrop={(e) => onDrop(e, idx)}
-                  onDragEnd={onDragEnd}
-                  className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 transition-colors active:cursor-grabbing ${
-                    dragOverIdx === idx
-                      ? 'border-t-2 border-t-cyan-400 bg-white/10'
-                      : 'border-t-2 border-t-transparent bg-white/5 hover:bg-white/8'
+                  data-queue-index={idx}
+                  className={`queue-item flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                    isDragging
+                      ? 'is-dragging relative z-[50] border-emerald-400/75 bg-white/12'
+                      : 'border-transparent bg-white/5 hover:bg-white/8'
                   }`}
+                  style={{
+                    opacity: isDragging ? 0.85 : 1,
+                    transform: shouldShiftDown
+                        ? 'translateY(56px)'
+                        : shouldShiftUp
+                          ? 'translateY(-56px)'
+                          : 'translateY(0)',
+                    transition: isDragging
+                      ? 'transform 0.15s ease, opacity 0.15s ease'
+                      : draggingIndexState !== null
+                        ? 'transform 0.2s ease'
+                        : 'none',
+                  }}
                 >
-                  <DragHandle />
+                  <button
+                    type="button"
+                    onPointerDown={(e) => onHandlePointerDown(e, idx)}
+                    onPointerMove={onHandlePointerMove}
+                    onPointerUp={onHandlePointerUp}
+                    onPointerCancel={onHandlePointerUp}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+                    style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+                    aria-label={`Reorder ${song.title}`}
+                  >
+                    <DragHandle />
+                  </button>
                   <ArtworkImage
                     videoId={song.videoId}
                     thumbnail={song.thumbnail}
@@ -607,7 +754,14 @@ export default function SearchModal({ roomId, open, onClose }) {
                     </svg>
                   </button>
                 </div>
-              ))}
+                </Fragment>
+              )})}
+              {draggingIndexState !== null && hoverIndexState === staged.length ? (
+                <div
+                  className="h-[2px] w-full bg-emerald-400 transition-transform duration-200 ease-out"
+                  aria-hidden
+                />
+              ) : null}
             </div>
           </div>
           <div className="px-3 pb-3 pt-2">
@@ -629,14 +783,14 @@ export default function SearchModal({ roomId, open, onClose }) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-md"
+        className="fixed inset-0 z-40 bg-black/70 opacity-100 transition-opacity duration-200 ease-out"
         aria-hidden
         onClick={handleClose}
       />
 
       {/* Mobile: bottom sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[100] flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Add songs"
@@ -650,7 +804,7 @@ export default function SearchModal({ roomId, open, onClose }) {
 
       {/* Desktop: right sidebar */}
       <div
-        className="fixed bottom-0 right-0 top-0 z-[100] hidden w-[420px] flex-col overflow-hidden border-l border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:flex"
+        className="fixed bottom-0 right-0 top-0 z-50 hidden w-[420px] flex-col overflow-hidden border-l border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:flex"
         role="dialog"
         aria-modal="true"
         aria-label="Add songs"

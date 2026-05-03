@@ -10,6 +10,7 @@ import {
   forceSkipToNext,
   goToPreviousTrack,
   kickUser,
+  subscribeUserPresence,
 } from '../firebase/roomService'
 import { getDisplayName, getUserId } from '../lib/session'
 import NowPlaying from '../components/NowPlaying'
@@ -40,14 +41,52 @@ export default function Room() {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [joinTimedOut, setJoinTimedOut] = useState(false)
+  const [roomAlert, setRoomAlert] = useState(null)
   // 'swipe' | 'list' — only relevant on mobile
   const [voteTab, setVoteTab] = useState('swipe')
   const queueCleanupRoomIdRef = useRef(null)
+  const hasJoinedRef = useRef(false)
   useEffect(() => {
-    if (!roomId || !displayName.trim()) return undefined
-    upsertUser(roomId, userId, displayName.trim()).catch(console.error)
-    return undefined
-  }, [roomId, userId, displayName])
+    if (!roomId || !displayName.trim() || !userId) return undefined
+    let cancelled = false
+    let seenInitialSnapshot = false
+    let unsubscribePresence = null
+    let graceTimer = null
+
+    hasJoinedRef.current = false
+
+    ;(async () => {
+      try {
+        await upsertUser(roomId, userId, displayName.trim())
+        if (cancelled) return
+
+        graceTimer = window.setTimeout(() => {
+          if (cancelled) return
+          hasJoinedRef.current = true
+          unsubscribePresence = subscribeUserPresence(roomId, userId, (existsInRoom) => {
+            if (!hasJoinedRef.current) return
+            if (!seenInitialSnapshot) {
+              seenInitialSnapshot = true
+              return
+            }
+            if (!existsInRoom) {
+              navigate('/?kicked=1', { replace: true })
+            }
+          })
+        }, 1000)
+      } catch (err) {
+        console.error(err)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      hasJoinedRef.current = false
+      if (graceTimer) window.clearTimeout(graceTimer)
+      if (unsubscribePresence) unsubscribePresence()
+    }
+  }, [roomId, userId, displayName, navigate])
 
   useEffect(() => {
     if (!roomId) {
@@ -69,13 +108,16 @@ export default function Room() {
     }
   }, [room, loading, navigate])
 
-  // Kicked detection: redirect if the host removed this user
   useEffect(() => {
-    if (!room || loading || !userId) return
-    if (room.users && !room.users[userId] && room.hostId && userId !== room.hostId) {
-      navigate('/?kicked=1', { replace: true })
+    if (!loading) {
+      setJoinTimedOut(false)
+      return undefined
     }
-  }, [room, loading, userId, navigate])
+    const timer = window.setTimeout(() => {
+      setJoinTimedOut(true)
+    }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [loading, roomId])
 
   // Only the host should trigger queue advances — prevents all guests from
   // racing to write Firebase when the song ends or on initial idle load.
@@ -177,6 +219,18 @@ export default function Room() {
   }
 
   if (loading || !room) {
+    if (joinTimedOut) {
+      return (
+        <div className="app-page flex min-h-svh flex-col items-center justify-center gap-4 px-4 text-center">
+          <p className="text-sm text-white/75">
+            Could not connect to room — check the room code and try again
+          </p>
+          <Link to="/" className="app-btn-secondary px-6">
+            Back to home
+          </Link>
+        </div>
+      )
+    }
     return (
       <div className="app-page flex items-center justify-center text-sm text-white/50">
         Loading room…
@@ -188,7 +242,20 @@ export default function Room() {
   const settings = room?.settings || {}
   const allowSkip = settings.allowSkip !== false
   const allowPause = settings.allowPause !== false
+  const allowGuestRequests =
+    settings.allowGuestRequests ?? settings.allowRequests !== false
   const playOnAllDevices = settings.playOnAllDevices !== false
+  const canRequestSongs = isHost || allowGuestRequests
+
+  const openAddSong = () => {
+    if (!canRequestSongs) {
+      setSearchOpen(false)
+      setRoomAlert('The host has disabled song requests')
+      window.setTimeout(() => setRoomAlert(null), 2500)
+      return
+    }
+    setSearchOpen(true)
+  }
 
   return (
     <div className="app-page relative w-full min-w-0 max-w-full overflow-x-hidden">
@@ -240,13 +307,15 @@ export default function Room() {
             >
               {copied ? 'Shared!' : 'Share link'}
             </button>
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="app-btn-secondary min-h-11 min-w-0 flex-1 text-sm font-semibold normal-case tracking-normal min-[481px]:flex-none"
-            >
-              Add song
-            </button>
+            {canRequestSongs ? (
+              <button
+                type="button"
+                onClick={openAddSong}
+                className="app-btn-secondary min-h-11 min-w-0 flex-1 text-sm font-semibold normal-case tracking-normal min-[481px]:flex-none"
+              >
+                Add song
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
@@ -258,6 +327,14 @@ export default function Room() {
             role="status"
           >
             {toast}
+          </div>
+        )}
+        {roomAlert && (
+          <div
+            className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-100"
+            role="status"
+          >
+            {roomAlert}
           </div>
         )}
         {voteErrorFlash && (
@@ -316,7 +393,7 @@ export default function Room() {
 
             {/* Swipe view: active on mobile when swipe tab, always on desktop */}
             <div className={`${voteTab === 'swipe' ? 'block' : 'hidden'} lg:block`}>
-              <SwipeStack items={unvotedQueue} onVote={vote} onAddSong={() => setSearchOpen(true)} />
+              <SwipeStack items={unvotedQueue} onVote={vote} onAddSong={canRequestSongs ? openAddSong : undefined} />
             </div>
 
             {/* Leaderboard: active on mobile when list tab, always on desktop */}
@@ -346,6 +423,12 @@ export default function Room() {
         roomId={roomId}
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
+        canRequestSongs={canRequestSongs}
+        onGuestRequestsBlocked={() => {
+          setSearchOpen(false)
+          setRoomAlert('The host has disabled song requests')
+          window.setTimeout(() => setRoomAlert(null), 2500)
+        }}
       />
     </div>
   )

@@ -122,9 +122,11 @@ export default function Landing() {
   const [name, setName] = useState(getDisplayName())
   const [joinCode, setJoinCode] = useState('')
   const [wasAutofilled, setWasAutofilled] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [createBusy, setCreateBusy] = useState(false)
+  const [joinBusy, setJoinBusy] = useState(false)
   const [err, setErr] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const busy = createBusy || joinBusy
 
   useEffect(() => {
     const lastRoom = localStorage.getItem('lastRoomId')
@@ -150,7 +152,7 @@ export default function Landing() {
   }
 
   const onStartRoom = async (settings) => {
-    setBusy(true)
+    setCreateBusy(true)
     try {
       const code = await uniqueRoomCode()
       await createRoom(code, getUserId(), settings)
@@ -161,7 +163,24 @@ export default function Landing() {
       setErr('Could not create room — check Firebase config')
       setShowSettings(false)
     } finally {
-      setBusy(false)
+      setCreateBusy(false)
+    }
+  }
+
+  const wait = (ms) => new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+
+  const roomExistsWithRetry = async (code) => {
+    try {
+      return await roomExists(code)
+    } catch (firstError) {
+      await wait(300)
+      try {
+        return await roomExists(code)
+      } catch {
+        throw firstError
+      }
     }
   }
 
@@ -173,9 +192,9 @@ export default function Landing() {
       setErr('Enter a room code')
       return
     }
-    setBusy(true)
+    setJoinBusy(true)
     try {
-      const ok = await roomExists(code)
+      const ok = await roomExistsWithRetry(code)
       if (!ok) {
         if (wasAutofilled) {
           localStorage.removeItem('lastRoomId')
@@ -190,7 +209,7 @@ export default function Landing() {
       console.error(e)
       setErr('Could not join — check Firebase')
     } finally {
-      setBusy(false)
+      setJoinBusy(false)
     }
   }
 
@@ -201,19 +220,19 @@ export default function Landing() {
       <LandingRibCanvas />
 
       <div
-        className="pointer-events-none fixed -left-[20%] -top-[15%] h-[55vmin] w-[55vmin] rounded-full bg-cyan-500/25 blur-[100px]"
+        className="pointer-events-none fixed -left-[20%] -top-[15%] h-[55vmin] w-[55vmin] rounded-full bg-cyan-400/34 blur-[105px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed -bottom-[20%] -left-[15%] h-[50vmin] w-[50vmin] rounded-full bg-amber-400/15 blur-[90px]"
+        className="pointer-events-none fixed -bottom-[20%] -left-[15%] h-[50vmin] w-[50vmin] rounded-full bg-amber-300/22 blur-[98px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed -right-[15%] -top-[10%] h-[48vmin] w-[48vmin] rounded-full bg-fuchsia-600/20 blur-[100px]"
+        className="pointer-events-none fixed -right-[15%] -top-[10%] h-[48vmin] w-[48vmin] rounded-full bg-fuchsia-500/28 blur-[104px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed -bottom-[15%] -right-[12%] h-[55vmin] w-[55vmin] rounded-full bg-violet-500/22 blur-[110px]"
+        className="pointer-events-none fixed -bottom-[15%] -right-[12%] h-[55vmin] w-[55vmin] rounded-full bg-violet-500/30 blur-[110px]"
         aria-hidden
       />
 
@@ -221,7 +240,7 @@ export default function Landing() {
         <RoomSettingsModal
           onStart={onStartRoom}
           onBack={() => setShowSettings(false)}
-          busy={busy}
+          busy={createBusy}
         />
       )}
 
@@ -300,7 +319,7 @@ export default function Landing() {
                 disabled={busy}
                 className="app-btn-secondary w-full"
               >
-                {busy ? '…' : 'Join'}
+                {joinBusy ? 'Joining...' : 'Join'}
               </button>
             </div>
           </div>

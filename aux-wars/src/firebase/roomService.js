@@ -29,6 +29,7 @@ export function roomRef(roomId) {
 
 export function createRoom(roomId, hostId, settings = {}) {
   const now = Date.now()
+  const allowGuestRequests = settings.allowGuestRequests ?? settings.allowRequests
   return set(roomRef(roomId), {
     createdAt: now,
     lastActivityAt: now,
@@ -36,7 +37,8 @@ export function createRoom(roomId, hostId, settings = {}) {
     settings: {
       allowSkip: settings.allowSkip !== false,
       allowPause: settings.allowPause !== false,
-      allowRequests: settings.allowRequests !== false,
+      allowRequests: allowGuestRequests !== false,
+      allowGuestRequests: allowGuestRequests !== false,
       playOnAllDevices: settings.playOnAllDevices !== false,
     },
     nowPlaying: null,
@@ -85,6 +87,11 @@ export function subscribeNowPlaying(roomId, cb) {
 export function subscribeUsers(roomId, cb) {
   const r = ref(requireDb(), `rooms/${roomId}/users`)
   return onValue(r, (snap) => cb(snap.val() || {}))
+}
+
+export function subscribeUserPresence(roomId, userId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/users/${userId}`)
+  return onValue(r, (snap) => cb(snap.exists()))
 }
 
 export async function roomExists(roomId) {
