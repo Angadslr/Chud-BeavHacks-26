@@ -1,5 +1,10 @@
 import { useEffect, useRef, useCallback, useState, memo } from 'react'
-import { updatePlaybackSync, subscribePlayback } from '../firebase/roomService'
+import {
+  updatePlaybackSync,
+  subscribePlayback,
+  subscribeNowPlaying,
+} from '../firebase/roomService'
+import ArtworkImage from './ArtworkImage'
 
 let ytApiPromise = null
 
@@ -33,17 +38,6 @@ function ensureYouTubeAPI() {
   return ytApiPromise
 }
 
-function youtubePosterCandidates(videoId, storedThumb) {
-  if (!videoId) return storedThumb ? [storedThumb] : []
-  return [
-    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/default.jpg`,
-    storedThumb,
-  ].filter(Boolean)
-}
-
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
   const m = Math.floor(seconds / 60)
@@ -52,38 +46,46 @@ function formatTime(seconds) {
 }
 
 export const AlbumCover = memo(function AlbumCover({ videoId, storedThumb }) {
-  const candidates = youtubePosterCandidates(videoId, storedThumb)
-  const [posterIndex, setPosterIndex] = useState(0)
-  const posterSrc =
-    candidates[Math.min(posterIndex, Math.max(0, candidates.length - 1))] || ''
-
   return (
-    <img
-      src={posterSrc || storedThumb}
-      alt=""
+    <ArtworkImage
+      videoId={videoId}
+      thumbnail={storedThumb}
       className="h-full w-full object-cover"
-      onError={() => {
-        if (posterIndex < candidates.length - 1) {
-          setPosterIndex((i) => i + 1)
-        }
-      }}
     />
   )
 })
 
-function PlayIcon() {
+function PlayIcon({ className = 'h-4 w-4' }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <path d="M4 2L14 8L4 14V2Z" />
     </svg>
   )
 }
 
-function PauseIcon() {
+function PauseIcon({ className = 'h-4 w-4' }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <rect x="3" y="2" width="4" height="12" rx="1" />
       <rect x="9" y="2" width="4" height="12" rx="1" />
+    </svg>
+  )
+}
+
+function PreviousTrackIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <rect x="2" y="2" width="2" height="12" rx="1" />
+      <path d="M13 2L5 8L13 14V2Z" />
+    </svg>
+  )
+}
+
+function SkipTrackIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M3 2L11 8L3 14V2Z" />
+      <rect x="12" y="2" width="2" height="12" rx="1" />
     </svg>
   )
 }
@@ -119,35 +121,39 @@ function GuestReadOnlyPlayer({ nowPlaying, roomId }) {
   return (
     <>
       {/* Mobile mini-player */}
-      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+      <div className="app-glass-inset box-border flex w-full max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2 sm:hidden">
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg max-[480px]:h-9 max-[480px]:w-9">
           <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">{nowPlaying.title}</p>
-          <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <p className="truncate whitespace-nowrap text-sm font-semibold text-ellipsis text-white">
+            {nowPlaying.title}
+          </p>
+          <p className="min-w-0 truncate whitespace-nowrap text-xs text-ellipsis text-white/50">
+            {nowPlaying.artist}
+          </p>
         </div>
-        <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-white/40">
+        <span className="hidden max-w-[5.5rem] shrink-0 truncate rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-medium text-white/40 min-[360px]:inline-block">
           Host&apos;s device
         </span>
       </div>
 
       {/* Desktop full player */}
-      <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60 sm:block">
+      <div className="app-glass-inset relative hidden w-full min-w-0 max-w-full overflow-hidden shadow-2xl shadow-black/60 sm:block">
         <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
-          <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">Now playing</p>
+          <div className="mb-5 flex min-w-0 items-center justify-between gap-3 border-b border-white/5 pb-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">Now playing</p>
               <p className="mt-0.5 text-[11px] text-white/35">Playing on host&apos;s device</p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
+            <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
               Host Only
             </span>
           </div>
 
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
-              <div className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl" aria-hidden />
+              <div className="absolute -inset-2 rounded-3xl bg-cyan-400/12 blur-2xl" aria-hidden />
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
                 <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
               </div>
@@ -170,7 +176,7 @@ function GuestReadOnlyPlayer({ nowPlaying, roomId }) {
                   <div className="relative mt-2 h-5 py-2">
                     <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
                     <div
-                      className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
+                      className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-cyan-400"
                       style={{ width: `${progressPct}%`, transition: 'width 0.25s linear' }}
                     />
                   </div>
@@ -238,6 +244,9 @@ function NowPlayingActive({
   const progressPct =
     duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0
 
+  /** Mobile previous/restart: visible when a prior track exists (Firebase) or playback can restart from t&gt;5s */
+  const previousControlVisible = prevEnabled || progress.current > 5
+
   const syncStateFromPlayer = useCallback(() => {
     const p = playerRef.current
     if (!p || typeof p.getPlayerState !== 'function') return
@@ -256,11 +265,12 @@ function NowPlayingActive({
         setAutoplayBlocked(false)
       }
       if (st === YT_ENDED) {
+        if (!isHost) return
         const v = endedVideoRef.current
         if (v) onEnded?.(v)
       }
     },
-    [onEnded],
+    [onEnded, isHost],
   )
 
   useEffect(() => {
@@ -334,6 +344,21 @@ function NowPlayingActive({
       }
     }
   }, [videoId, handleStateChange, syncStateFromPlayer])
+
+  useEffect(() => {
+    if (!roomId) return undefined
+    return subscribeNowPlaying(roomId, (np) => {
+      const id = np?.videoId
+      if (!id) return
+      const p = playerRef.current
+      if (!p || typeof p.loadVideoById !== 'function') return
+      try {
+        p.loadVideoById(id)
+      } catch {
+        /* noop */
+      }
+    })
+  }, [roomId])
 
   useEffect(() => {
     return () => {
@@ -495,6 +520,7 @@ function NowPlayingActive({
   }, [])
 
   const handleSkip = useCallback(() => {
+    console.log('[AuxWars] skip: NowPlaying click handler fired')
     if (!skipEnabled) return
     onSkip()
   }, [skipEnabled, onSkip])
@@ -539,63 +565,83 @@ function NowPlayingActive({
         aria-hidden
       />
 
-      {/* Mobile mini-player (< sm) */}
-      <div className="flex w-full max-w-full items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+      {/* Mobile mini-player (< sm): art + meta + transport (prev | play | skip) */}
+      <div className="app-glass-inset box-border flex w-full max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2 sm:hidden">
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg max-[480px]:h-9 max-[480px]:w-9">
           <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <p className="max-w-full truncate whitespace-nowrap text-sm font-semibold text-white">
+          <p className="truncate whitespace-nowrap text-sm font-semibold text-ellipsis text-white">
             {nowPlaying.title}
           </p>
-          <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>
+          <p className="min-w-0 truncate whitespace-nowrap text-xs text-ellipsis text-white/50">
+            {nowPlaying.artist}
+          </p>
         </div>
         {autoplayBlocked ? (
           <button
             type="button"
             onClick={tapToPlay}
-            className="shrink-0 rounded-full bg-aux-mint px-3 py-1.5 text-xs font-bold text-black"
+            className="min-h-9 shrink-0 rounded-full bg-cyan-400/90 px-2.5 py-1.5 text-xs font-bold text-black transition-colors hover:bg-cyan-300 active:scale-95"
           >
             Tap to play
           </button>
-        ) : allowPause ? (
-          <button
-            type="button"
-            onClick={togglePlayPause}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black shadow transition-transform active:scale-95"
-            aria-label={showPlaying ? 'Pause' : 'Play'}
-          >
-            {showPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-        ) : null}
-        {isHost && allowSkip && (
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={!skipEnabled}
-            title={skipTitle}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
-            aria-label="Skip song"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M3 2L11 8L3 14V2Z" />
-              <rect x="12" y="2" width="2" height="12" rx="1" />
-            </svg>
-          </button>
+        ) : (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              title="Restart song · tap when under 5s to go to previous track"
+              aria-label="Previous / restart track"
+              aria-hidden={!previousControlVisible}
+              tabIndex={previousControlVisible ? 0 : -1}
+              className={`app-btn-icon-round box-border h-10 w-10 shrink-0 p-2 active:scale-95 max-[480px]:h-9 max-[480px]:w-9 max-[480px]:p-1.5 ${
+                previousControlVisible ? 'visible' : 'invisible pointer-events-none'
+              }`}
+            >
+              <PreviousTrackIcon className="h-4 w-4 max-[480px]:h-[14px] max-[480px]:w-[14px]" />
+            </button>
+            {allowPause ? (
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                className="app-btn-play box-border h-10 w-10 shrink-0 p-2 shadow-lg shadow-black/35 hover:brightness-95 active:scale-95 max-[480px]:h-9 max-[480px]:w-9 max-[480px]:p-1.5"
+                aria-label={showPlaying ? 'Pause' : 'Play'}
+              >
+                {showPlaying ? (
+                  <PauseIcon className="h-4 w-4 max-[480px]:h-[14px] max-[480px]:w-[14px]" />
+                ) : (
+                  <PlayIcon className="h-4 w-4 max-[480px]:h-[14px] max-[480px]:w-[14px]" />
+                )}
+              </button>
+            ) : null}
+            {isHost && allowSkip ? (
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={!skipEnabled}
+                title={skipTitle}
+                className="app-btn-icon-round box-border h-10 w-10 shrink-0 p-2 active:scale-95 max-[480px]:h-9 max-[480px]:w-9 max-[480px]:p-1.5"
+                aria-label="Skip song"
+              >
+                <SkipTrackIcon className="h-4 w-4 max-[480px]:h-[14px] max-[480px]:w-[14px]" />
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
 
       {/* Desktop full player (≥ sm) */}
-      <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60 sm:block">
+      <div className="app-glass-inset relative hidden w-full min-w-0 max-w-full overflow-hidden shadow-2xl shadow-black/60 sm:block">
         <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
-          <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">
+          <div className="mb-5 flex min-w-0 items-center justify-between gap-3 border-b border-white/5 pb-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
                 Now playing
               </p>
               <p className="mt-0.5 text-[11px] text-white/35">Aux Wars · room</p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
+            <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
               YouTube
             </span>
           </div>
@@ -603,7 +649,7 @@ function NowPlayingActive({
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
               <div
-                className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl"
+                className="absolute -inset-2 rounded-3xl bg-cyan-400/12 blur-2xl"
                 aria-hidden
               />
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
@@ -687,7 +733,7 @@ function NowPlayingActive({
                 >
                   <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
                   <div
-                    className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
+                    className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-cyan-400"
                     style={{ width: `${progressPct}%` }}
                   />
                   <div
@@ -703,13 +749,10 @@ function NowPlayingActive({
                     type="button"
                     onClick={handlePrevious}
                     title="Restart song · hold for 5 s to go to previous track"
-                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 active:scale-95 sm:h-14 sm:w-14"
+                    className="app-btn-icon-round flex h-12 w-12 items-center justify-center active:scale-95 sm:h-14 sm:w-14"
                     aria-label="Previous / restart track"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                      <rect x="2" y="2" width="2" height="12" rx="1" />
-                      <path d="M13 2L5 8L13 14V2Z" />
-                    </svg>
+                    <PreviousTrackIcon />
                   </button>
                 )}
 
@@ -717,7 +760,7 @@ function NowPlayingActive({
                   <button
                     type="button"
                     onClick={togglePlayPause}
-                    className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/35 transition-transform hover:brightness-95 active:scale-95 sm:h-16 sm:w-16"
+                    className="app-btn-play flex h-14 w-14 items-center justify-center shadow-lg shadow-black/35 hover:brightness-95 active:scale-95 sm:h-16 sm:w-16"
                     aria-label={showPlaying ? 'Pause' : 'Play'}
                   >
                     {showPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -730,13 +773,10 @@ function NowPlayingActive({
                     onClick={handleSkip}
                     disabled={!skipEnabled}
                     title={skipTitle}
-                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
+                    className="app-btn-icon-round flex h-12 w-12 items-center justify-center active:scale-95 sm:h-14 sm:w-14"
                     aria-label="Skip song"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                      <path d="M3 2L11 8L3 14V2Z" />
-                      <rect x="12" y="2" width="2" height="12" rx="1" />
-                    </svg>
+                    <SkipTrackIcon />
                   </button>
                 )}
               </div>
@@ -752,7 +792,7 @@ export default function NowPlaying(props) {
   const videoId = props.nowPlaying?.videoId
   if (!videoId) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1c1c1f] to-[#0d0d0f] shadow-xl shadow-black/50">
+      <div className="app-glass-inset w-full min-w-0 max-w-full overflow-hidden shadow-xl shadow-black/50">
         <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
           <div className="mb-4 flex h-28 w-28 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
             <span className="text-4xl opacity-40" aria-hidden>
@@ -773,5 +813,5 @@ export default function NowPlaying(props) {
     return <GuestReadOnlyPlayer nowPlaying={props.nowPlaying} roomId={props.roomId} />
   }
 
-  return <NowPlayingActive key={videoId} {...props} />
+  return <NowPlayingActive {...props} />
 }

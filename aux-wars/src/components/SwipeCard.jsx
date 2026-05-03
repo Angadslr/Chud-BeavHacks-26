@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
+import ArtworkImage from './ArtworkImage'
 
 const SWIPE_THRESHOLD = 80
 
@@ -97,15 +98,15 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
 
   const borderColor =
     vibeRatio > 0
-      ? `rgba(30,215,96,${vibeRatio})`
+      ? `rgba(34,211,238,${vibeRatio})`
       : skipRatio > 0
-        ? `rgba(255,68,88,${skipRatio})`
+        ? `rgba(251,113,133,${skipRatio})`
         : 'transparent'
   const boxShadow =
     vibeRatio > 0
-      ? `0 0 ${40 * vibeRatio}px rgba(30,215,96,${0.45 * vibeRatio}), 0 20px 40px rgba(0,0,0,0.45)`
+      ? `0 0 ${40 * vibeRatio}px rgba(34,211,238,${0.4 * vibeRatio}), 0 20px 40px rgba(0,0,0,0.45)`
       : skipRatio > 0
-        ? `0 0 ${40 * skipRatio}px rgba(255,68,88,${0.45 * skipRatio}), 0 20px 40px rgba(0,0,0,0.45)`
+        ? `0 0 ${40 * skipRatio}px rgba(251,113,133,${0.4 * skipRatio}), 0 20px 40px rgba(0,0,0,0.45)`
         : '0 20px 40px rgba(0,0,0,0.45)'
 
   const up = song.upvotes ?? 0
@@ -131,11 +132,11 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
           boxShadow,
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
-        className="relative h-full min-h-[65vh] w-full overflow-hidden rounded-[20px] border-2 bg-[#0a0a0c]"
+        className="relative h-full min-h-[65vh] w-full overflow-hidden rounded-2xl border-2 bg-[#05060a]/95"
       >
-        <img
-          src={song.thumbnail || ''}
-          alt=""
+        <ArtworkImage
+          videoId={song.videoId}
+          thumbnail={song.thumbnail}
           draggable={false}
           className="absolute inset-0 z-0 h-full w-full object-cover"
         />
@@ -180,14 +181,14 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
         <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-30">
           <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-black/40">
             <div
-              className="h-full bg-aux-coral"
+              className="h-full bg-rose-400/90"
               style={{
                 width: `${downPct}%`,
                 transition: BAR_TRANSITION,
               }}
             />
             <div
-              className="h-full bg-aux-mint"
+              className="h-full bg-cyan-400/90"
               style={{
                 width: `${upPct}%`,
                 transition: BAR_TRANSITION,
@@ -196,10 +197,10 @@ function SingleSwipeCard({ song, isTop, onVibe, onSkip }) {
           </div>
         </div>
 
-        <div className="pointer-events-none absolute bottom-14 left-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-aux-coral backdrop-blur-sm">
+        <div className="pointer-events-none absolute bottom-14 left-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-rose-300 backdrop-blur-sm">
           👎 {down}
         </div>
-        <div className="pointer-events-none absolute bottom-14 right-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-aux-mint backdrop-blur-sm">
+        <div className="pointer-events-none absolute bottom-14 right-4 z-30 rounded-full bg-black/55 px-2.5 py-1 text-sm font-bold tabular-nums text-cyan-300 backdrop-blur-sm">
           👍 {up}
         </div>
       </div>
@@ -257,8 +258,8 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
 
     return (
       <div
-        className={`flex w-full min-h-[30vh] flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] border border-aux-border bg-aux-surface/80 transition-colors ${
-          isAddable ? 'cursor-pointer hover:bg-aux-surface active:bg-aux-surface/60' : ''
+        className={`app-glass-inset flex min-h-[30vh] w-full flex-col items-center justify-center gap-3 overflow-hidden transition-colors ${
+          isAddable ? 'cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.05]' : ''
         }`}
         onClick={isAddable ? onAddSong : undefined}
         role={isAddable ? 'button' : undefined}
@@ -279,18 +280,18 @@ export default function SwipeStack({ items = [], onVote, onAddSong }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-left text-sm font-semibold uppercase tracking-wider text-white/45">
+    <div className="min-w-0 space-y-3">
+      <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden">
+        <h3 className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase tracking-wider text-white/45">
           Vote on every track
         </h3>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-white/35">
+        <span className="shrink-0 whitespace-nowrap text-[10px] font-medium uppercase tracking-wider text-white/35">
           Swipe to vote
         </span>
       </div>
 
       <div
-        className="relative mx-auto w-full max-w-md overflow-hidden"
+        className="relative mx-auto w-full min-w-0 max-w-full overflow-hidden sm:max-w-md"
         style={{ minHeight: '65vh', height: '65vh', zIndex: 1 }}
       >
         {[...visible].reverse().map((song, revIdx) => {

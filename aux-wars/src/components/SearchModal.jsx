@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { addSong, patchQueueSong } from '../firebase/roomService'
+import { addSong } from '../firebase/roomService'
+import ArtworkImage from './ArtworkImage'
+import { resolveArtworkUrlForSong } from '../lib/artworkResolve'
 import { getDisplayName, getUserId } from '../lib/session'
 
 const YT_SEARCH = 'https://www.googleapis.com/youtube/v3/search'
 const YT_VIDEOS = 'https://www.googleapis.com/youtube/v3/videos'
 const LASTFM_API = 'https://ws.audioscrobbler.com/2.0/'
-const MB_API = 'https://musicbrainz.org/ws/2/recording/'
-const CAA_BASE = 'https://coverartarchive.org/release'
-
 const SEARCH_DEBOUNCE_MS = 400
 const MIN_QUERY_LEN = 2
 const HIGH_POPULARITY_THRESHOLD = 100_000_000
@@ -163,41 +162,6 @@ async function fetchLastFmPlaycount(artist, track, apiKey) {
   } catch {
     return null
   }
-}
-
-async function searchMusicBrainz(query) {
-  const url = new URL(MB_API)
-  url.searchParams.set('query', query)
-  url.searchParams.set('fmt', 'json')
-  url.searchParams.set('limit', '10')
-  const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.recordings || []).filter((r) => (r.score || 0) >= 85).slice(0, 5)
-}
-
-function coverArtUrl(releaseId) {
-  return releaseId ? `${CAA_BASE}/${releaseId}/front-500` : null
-}
-
-async function resolveCoverArtFromMusicBrainz(item) {
-  const q = `${item.title} ${item.artist}`.trim()
-  if (!q) return null
-  const recs = await searchMusicBrainz(q)
-  const rec = recs[0]
-  if (!rec) return null
-  const releaseId = rec.releases?.[0]?.id || null
-  return coverArtUrl(releaseId)
-}
-
-function preloadImage(url) {
-  return new Promise((resolve) => {
-    if (!url) { resolve(false); return }
-    const img = new Image()
-    img.onload = () => resolve(true)
-    img.onerror = () => resolve(false)
-    img.src = url
-  })
 }
 
 function ytItemsToRows(items) {
@@ -436,23 +400,16 @@ export default function SearchModal({ roomId, open, onClose }) {
     setAdding(true)
     try {
       for (const song of staged) {
-        const key = await addSong(roomId, {
+        const thumbnail =
+          (await resolveArtworkUrlForSong(song)) || song.thumbnail || ''
+        await addSong(roomId, {
           videoId: song.videoId,
           title: song.title,
-          thumbnail: song.thumbnail,
+          thumbnail,
           artist: song.artist,
           addedBy: getDisplayName() || 'Guest',
           addedByUserId: getUserId(),
         })
-        void (async () => {
-          try {
-            const artUrl = await resolveCoverArtFromMusicBrainz(song)
-            if (!artUrl) return
-            const ok = await preloadImage(artUrl)
-            if (!ok) return
-            await patchQueueSong(roomId, key, { thumbnail: artUrl })
-          } catch { /* ignore background enrichment errors */ }
-        })()
       }
       handleClose()
     } catch {
@@ -487,11 +444,11 @@ export default function SearchModal({ roomId, open, onClose }) {
   const sidebarInner = (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-aux-border px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
         <div>
           <h2 className="text-lg font-bold text-white">Add songs</h2>
           {staged.length > 0 && (
-            <p className="text-xs font-medium text-aux-mint">{staged.length} queued</p>
+            <p className="text-xs font-medium text-cyan-300/90">{staged.length} queued</p>
           )}
         </div>
         <button
@@ -504,18 +461,18 @@ export default function SearchModal({ roomId, open, onClose }) {
       </div>
 
       {/* Search bar */}
-      <div className="shrink-0 flex gap-2 border-b border-aux-border p-3">
+      <div className="shrink-0 flex gap-2 border-b border-white/10 p-3">
         <input
           ref={searchInputRef}
           value={q}
           onChange={onQueryChange}
           onKeyDown={(e) => { if (e.key === 'Enter') flushSearch() }}
           placeholder="Search for a song…"
-          className="min-w-0 flex-1 rounded-xl border border-aux-border bg-black/30 px-3 py-2.5 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
+          className="app-input app-input-tight min-w-0 flex-1 py-2.5"
         />
         <div className="flex w-10 shrink-0 items-center justify-center" aria-hidden={!loading}>
           {loading ? (
-            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-aux-mint" aria-label="Loading" />
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-cyan-400" aria-label="Loading" />
           ) : null}
         </div>
       </div>
@@ -523,14 +480,14 @@ export default function SearchModal({ roomId, open, onClose }) {
       {/* Search results — scrollable, stays visible after picking */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         {error && (
-          <div className="mb-2 rounded-lg bg-aux-coral/15 px-3 py-2 text-sm text-aux-coral">
+          <div className="mb-2 rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
             <p className="whitespace-pre-line">{error}</p>
             {/quota|youtube daily/i.test(error) ? (
               <a
                 href={QUOTA_HELP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block text-xs font-semibold text-aux-mint underline hover:brightness-110"
+                className="mt-2 inline-block text-xs font-semibold text-cyan-300 underline hover:brightness-110"
               >
                 Open YouTube API quotas in Google Cloud
               </a>
@@ -560,15 +517,19 @@ export default function SearchModal({ roomId, open, onClose }) {
                 <button
                   type="button"
                   onClick={() => pick(item)}
-                  className={`group flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-colors ${
+                  className={`group flex w-full items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-2 text-left transition-colors ${
                     isStaged
-                      ? 'border-aux-mint/40 bg-aux-mint/[0.10] hover:border-aux-coral/40 hover:bg-aux-coral/[0.08]'
+                      ? 'border-cyan-400/45 bg-cyan-400/10 hover:border-rose-400/40 hover:bg-rose-500/10'
                       : highPopularity
-                        ? 'border-aux-mint/25 bg-aux-mint/[0.07] hover:bg-aux-mint/10'
-                        : 'border-transparent bg-black/25 hover:border-aux-mint/40 hover:bg-black/40'
+                        ? 'border-cyan-400/30 bg-cyan-400/[0.07] hover:bg-cyan-400/10'
+                        : 'hover:border-cyan-400/35 hover:bg-white/[0.06]'
                   }`}
                 >
-                  <img src={item.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                  <ArtworkImage
+                    videoId={item.videoId}
+                    thumbnail={item.thumbnail}
+                    className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="max-w-full truncate font-medium text-white">{item.title}</p>
@@ -579,10 +540,10 @@ export default function SearchModal({ roomId, open, onClose }) {
                       )}
                       {isStaged && (
                         <span className="shrink-0">
-                          <span className="rounded-full bg-aux-mint/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-mint group-hover:hidden">
-                            ✓ Staged
+                          <span className="rounded-full bg-cyan-400/20 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200 group-hover:hidden">
+                            ✓ Added
                           </span>
-                          <span className="hidden rounded-full bg-aux-coral/20 px-1.5 py-0.5 text-[10px] font-bold text-aux-coral group-hover:inline-block">
+                          <span className="hidden rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-200 group-hover:inline-block">
                             × Remove
                           </span>
                         </span>
@@ -590,9 +551,12 @@ export default function SearchModal({ roomId, open, onClose }) {
                     </div>
                     <p className="mt-0.5 min-w-0 truncate text-xs text-white/50">{item.artist}</p>
                   </div>
-                  <span className="max-w-[8.5rem] shrink-0 text-right text-[10px] font-semibold tabular-nums leading-snug text-white/70">
-                    {item.popularityLabel}
-                  </span>
+                  <div className="max-w-[8.5rem] shrink-0 text-right text-[10px] font-semibold tabular-nums leading-snug text-white/70">
+                    {!isStaged && (
+                      <p className="mb-0.5 font-bold text-cyan-300">Add</p>
+                    )}
+                    <p>{item.popularityLabel}</p>
+                  </div>
                 </button>
               </li>
             )
@@ -602,9 +566,9 @@ export default function SearchModal({ roomId, open, onClose }) {
 
       {/* Staged queue — shown when songs are staged */}
       {staged.length > 0 && (
-        <div className="shrink-0 border-t border-aux-border bg-black/20">
+        <div className="shrink-0 border-t border-white/10 bg-black/25">
           <div className="px-3 pt-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+            <p className="app-label mb-2 !tracking-[0.12em]">
               Queue order ({staged.length})
             </p>
             <div className="max-h-[190px] space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
@@ -618,12 +582,16 @@ export default function SearchModal({ roomId, open, onClose }) {
                   onDragEnd={onDragEnd}
                   className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 transition-colors active:cursor-grabbing ${
                     dragOverIdx === idx
-                      ? 'border-t-2 border-t-aux-mint bg-white/10'
+                      ? 'border-t-2 border-t-cyan-400 bg-white/10'
                       : 'border-t-2 border-t-transparent bg-white/5 hover:bg-white/8'
                   }`}
                 >
                   <DragHandle />
-                  <img src={song.thumbnail} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                  <ArtworkImage
+                    videoId={song.videoId}
+                    thumbnail={song.thumbnail}
+                    className="h-8 w-8 shrink-0 rounded-md object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">{song.title}</p>
                     <p className="truncate text-xs text-white/45">{song.artist}</p>
@@ -631,7 +599,7 @@ export default function SearchModal({ roomId, open, onClose }) {
                   <button
                     type="button"
                     onClick={() => removeStaged(song.stagedId)}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white/40 transition-colors hover:bg-white/10 hover:text-aux-coral"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-white/40 transition-colors hover:bg-white/10 hover:text-rose-400"
                     aria-label={`Remove ${song.title}`}
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
@@ -647,7 +615,7 @@ export default function SearchModal({ roomId, open, onClose }) {
               type="button"
               onClick={addAllToQueue}
               disabled={adding}
-              className="w-full rounded-xl bg-aux-mint py-3 text-sm font-bold text-black hover:brightness-110 disabled:opacity-50"
+              className="app-btn-cta"
             >
               {adding ? 'Adding…' : `Add ${staged.length} song${staged.length !== 1 ? 's' : ''} to Queue`}
             </button>
@@ -661,14 +629,14 @@ export default function SearchModal({ roomId, open, onClose }) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-md"
         aria-hidden
         onClick={handleClose}
       />
 
       {/* Mobile: bottom sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[100] flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border-t border-aux-border bg-[#0f0f11] sm:hidden"
+        className="fixed bottom-0 left-0 right-0 z-[100] flex max-h-[88vh] flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Add songs"
@@ -682,7 +650,7 @@ export default function SearchModal({ roomId, open, onClose }) {
 
       {/* Desktop: right sidebar */}
       <div
-        className="fixed bottom-0 right-0 top-0 z-[100] hidden w-[420px] flex-col overflow-hidden border-l border-aux-border bg-[#0f0f11] sm:flex"
+        className="fixed bottom-0 right-0 top-0 z-[100] hidden w-[420px] flex-col overflow-hidden border-l border-white/10 bg-[#0a0c14]/95 backdrop-blur-xl sm:flex"
         role="dialog"
         aria-modal="true"
         aria-label="Add songs"

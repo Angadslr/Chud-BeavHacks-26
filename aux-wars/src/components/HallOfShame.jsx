@@ -22,21 +22,21 @@ export default function HallOfShame({ users, queue = [] }) {
 
   if (!ranked.length) {
     return (
-      <div className="w-full overflow-hidden rounded-xl border border-dashed border-white/15 bg-black/20 px-3 py-3 text-left text-xs text-white/45">
+      <div className="app-glass-inset w-full overflow-hidden border-dashed px-3 py-3 text-left text-xs text-white/45">
         Hall of Shame: no downvote drama yet.
       </div>
     )
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-aux-coral/30 bg-aux-coral/5 px-3 py-3 text-left">
-      <p className="text-xs font-semibold uppercase tracking-wider text-aux-coral">
+    <div className="app-glass-inset w-full overflow-hidden border-rose-400/30 bg-rose-500/5 px-3 py-3 text-left">
+      <p className="app-label !tracking-[0.15em] text-rose-300/90">
         Hall of Shame
       </p>
       <ol className="mt-2 space-y-1.5 text-sm">
         {ranked.map((r, i) => (
-          <li key={r.id} className="flex justify-between gap-2 text-white/85">
-            <span className="truncate">
+          <li key={r.id} className="flex min-w-0 justify-between gap-2 text-white/85">
+            <span className="min-w-0 truncate">
               {i + 1}. {r.name}
             </span>
             <span className="shrink-0 font-mono text-aux-coral">

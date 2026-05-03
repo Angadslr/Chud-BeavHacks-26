@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { customAlphabet } from 'nanoid'
 import { createRoom, roomExists } from '../firebase/roomService'
 import { setDisplayName, getDisplayName, getUserId } from '../lib/session'
+import LandingRibCanvas from '../components/LandingRibCanvas'
 
 const genRoomCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6)
 
@@ -18,8 +19,8 @@ function Toggle({ checked, onChange, label, sublabel }) {
   return (
     <label className="flex cursor-pointer select-none items-center justify-between gap-3">
       <span className="flex flex-col">
-        <span className="text-sm font-medium text-white/80">{label}</span>
-        {sublabel && <span className="text-xs text-white/40">{sublabel}</span>}
+        <span className="text-sm font-medium text-white/85">{label}</span>
+        {sublabel && <span className="text-xs text-white/45">{sublabel}</span>}
       </span>
       <div
         role="switch"
@@ -27,8 +28,8 @@ function Toggle({ checked, onChange, label, sublabel }) {
         tabIndex={0}
         onClick={() => onChange(!checked)}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-aux-mint/40 ${
-          checked ? 'bg-aux-mint' : 'bg-white/20'
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/35 ${
+          checked ? 'bg-cyan-400/90' : 'bg-white/15'
         }`}
       >
         <div
@@ -41,26 +42,26 @@ function Toggle({ checked, onChange, label, sublabel }) {
   )
 }
 
-function RoomSettingsModal({ name, onStart, onBack, busy }) {
+function RoomSettingsModal({ onStart, onBack, busy }) {
   const [allowSkip, setAllowSkip] = useState(true)
   const [allowPause, setAllowPause] = useState(true)
   const [allowRequests, setAllowRequests] = useState(true)
   const [playOnAllDevices, setPlayOnAllDevices] = useState(true)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-aux-border bg-[#111113] p-6 shadow-2xl shadow-black/60">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 px-4 backdrop-blur-md">
+      <div className="app-glass-modal w-full max-w-md p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Room Settings</h2>
-            <p className="mt-0.5 text-xs text-white/40">Configure before starting</p>
+            <h2 className="text-lg font-bold tracking-wide text-white">Room settings</h2>
+            <p className="mt-0.5 text-xs text-white/40">Before you start</p>
           </div>
           <button
             type="button"
             onClick={onBack}
-            className="rounded-lg px-3 py-1.5 text-sm text-white/40 hover:bg-white/5 hover:text-white/70"
+            className="rounded-lg px-3 py-1.5 text-sm text-white/45 hover:bg-white/5 hover:text-white/75"
           >
-            ← Back
+            Back
           </button>
         </div>
 
@@ -71,21 +72,21 @@ function RoomSettingsModal({ name, onStart, onBack, busy }) {
             label="Participants can skip"
             sublabel="Let anyone skip the current track"
           />
-          <div className="h-px bg-white/7" />
+          <div className="app-divider" />
           <Toggle
             checked={allowPause}
             onChange={setAllowPause}
             label="Participants can pause"
             sublabel="Let anyone pause playback"
           />
-          <div className="h-px bg-white/7" />
+          <div className="app-divider" />
           <Toggle
             checked={allowRequests}
             onChange={setAllowRequests}
             label="Allow song requests from guests"
             sublabel="Let participants add songs to the queue"
           />
-          <div className="h-px bg-white/7" />
+          <div className="app-divider" />
           <Toggle
             checked={playOnAllDevices}
             onChange={setPlayOnAllDevices}
@@ -100,11 +101,13 @@ function RoomSettingsModal({ name, onStart, onBack, busy }) {
 
         <button
           type="button"
-          onClick={() => onStart({ allowSkip, allowPause, allowRequests, playOnAllDevices })}
+          onClick={() =>
+            onStart({ allowSkip, allowPause, allowRequests, playOnAllDevices })
+          }
           disabled={busy}
-          className="mt-8 w-full rounded-xl bg-aux-mint py-4 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
+          className="app-btn-cta mt-8"
         >
-          {busy ? 'Creating room…' : 'Start Room'}
+          {busy ? 'Creating…' : 'Start room'}
         </button>
       </div>
     </div>
@@ -123,7 +126,6 @@ export default function Landing() {
   const [err, setErr] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
 
-  // Auto-fill last room code from localStorage
   useEffect(() => {
     const lastRoom = localStorage.getItem('lastRoomId')
     if (lastRoom) {
@@ -141,14 +143,12 @@ export default function Landing() {
     return true
   }
 
-  // Called when user clicks "Create a new room" — validates name then shows settings
   const onClickCreate = () => {
     setErr(null)
     if (!saveName()) return
     setShowSettings(true)
   }
 
-  // Called from the settings modal "Start Room" button
   const onStartRoom = async (settings) => {
     setBusy(true)
     try {
@@ -177,7 +177,6 @@ export default function Landing() {
     try {
       const ok = await roomExists(code)
       if (!ok) {
-        // Room gone — clear autofill
         if (wasAutofilled) {
           localStorage.removeItem('lastRoomId')
           setWasAutofilled(false)
@@ -198,98 +197,113 @@ export default function Landing() {
   void getUserId()
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-gradient-to-b from-[#0d0d0f] via-[#121214] to-[#0a0a0c] px-4 py-12">
+    <div className="app-page overflow-hidden">
+      <LandingRibCanvas />
+
+      <div
+        className="pointer-events-none fixed -left-[20%] -top-[15%] h-[55vmin] w-[55vmin] rounded-full bg-cyan-500/25 blur-[100px]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed -bottom-[20%] -left-[15%] h-[50vmin] w-[50vmin] rounded-full bg-amber-400/15 blur-[90px]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed -right-[15%] -top-[10%] h-[48vmin] w-[48vmin] rounded-full bg-fuchsia-600/20 blur-[100px]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed -bottom-[15%] -right-[12%] h-[55vmin] w-[55vmin] rounded-full bg-violet-500/22 blur-[110px]"
+        aria-hidden
+      />
+
       {showSettings && (
         <RoomSettingsModal
-          name={name}
           onStart={onStartRoom}
           onBack={() => setShowSettings(false)}
           busy={busy}
         />
       )}
 
-      <div className="w-full max-w-md text-center">
-        <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl">
-          No Skip
-        </h1>
-
-        {wasKicked && (
-          <div className="mt-6 rounded-xl border border-aux-coral/35 bg-aux-coral/10 px-4 py-3 text-sm font-medium text-aux-coral">
-            You were removed from the room.
-          </div>
-        )}
-
-        <div className="mt-10 rounded-2xl border border-aux-border bg-aux-surface/60 p-6 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
-          {/* Display name */}
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/45">
-            Display name
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            className="mt-2 w-full rounded-xl border border-aux-border bg-black/35 px-4 py-3 text-white placeholder:text-white/35 focus:border-aux-mint/50 focus:outline-none focus:ring-1 focus:ring-aux-mint/40"
-          />
-
-          {/* Room code */}
-          {wasAutofilled && (
-            <p className="mt-5 text-[11px] font-semibold uppercase tracking-wider text-aux-mint/70">
-              Rejoin your last room
-            </p>
-          )}
-          {!wasAutofilled && (
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wider text-white/45">
-              Room code
-            </label>
-          )}
-          <input
-            value={joinCode}
-            onChange={(e) => {
-              setJoinCode(e.target.value.toUpperCase())
-              setWasAutofilled(false)
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && onJoin()}
-            placeholder="e.g. X7K2M9"
-            maxLength={8}
-            className={`mt-2 w-full rounded-xl border bg-black/35 px-4 py-3 font-mono text-lg tracking-widest text-white placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-aux-mint/40 ${
-              wasAutofilled
-                ? 'border-aux-mint/30 focus:border-aux-mint/50'
-                : 'border-aux-border focus:border-aux-mint/50'
-            }`}
-          />
-
-          {err && (
-            <p className="mt-3 text-sm text-aux-coral" role="alert">
-              {err}
-            </p>
-          )}
-
-          {/* Primary action — join */}
-          <button
-            type="button"
-            onClick={onJoin}
-            disabled={busy}
-            className="mt-3 w-full rounded-xl bg-aux-mint py-3.5 text-base font-bold text-black hover:brightness-110 disabled:opacity-50"
+      <div className="relative z-10 flex min-h-svh flex-col items-center justify-center px-5 py-16">
+        <div className="w-full max-w-xl text-center">
+          <p
+            className="font-display text-[11px] font-bold uppercase tracking-[0.45em] text-white/50"
           >
-            {busy ? 'Working…' : 'Join room'}
-          </button>
+            Shared Jukebox
+          </p>
 
-          {/* Separator */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs uppercase tracking-wider text-white/35">or</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          {/* Secondary action — create */}
-          <button
-            type="button"
-            onClick={onClickCreate}
-            disabled={busy}
-            className="w-full rounded-xl border border-white/20 bg-transparent py-4 text-sm font-semibold text-white/70 hover:bg-white/5 hover:text-white/90 disabled:opacity-50"
+          <h1
+            className="font-display mt-4 text-[clamp(2rem,10vw,3.25rem)] font-bold uppercase leading-[1.05] tracking-[0.08em] text-white"
           >
-            Create a new room
-          </button>
+            House Party
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-[26rem] text-pretty text-sm leading-relaxed text-white/45">
+            Start a room, invite friends, and build the playlist together. Queue tracks and vote on
+            what plays next in real time.
+          </p>
+
+          {wasKicked && (
+            <div className="mt-6 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-200">
+              You were removed from the room.
+            </div>
+          )}
+
+          <div className="app-glass-card mx-auto mt-10 w-1/2 min-w-0 p-4 text-left max-sm:w-full">
+            <label className="app-label">Display name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              className="app-input"
+              autoComplete="name"
+            />
+
+            <label className="app-label mt-4 block">Room code</label>
+            {wasAutofilled ? (
+              <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-300/65">
+                Rejoin last room
+              </p>
+            ) : null}
+            <input
+              value={joinCode}
+              onChange={(e) => {
+                setJoinCode(e.target.value.toUpperCase())
+                setWasAutofilled(false)
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && onJoin()}
+              placeholder="Enter room code"
+              maxLength={8}
+              className={`app-input font-mono text-sm tracking-[0.2em] ${wasAutofilled ? 'border-cyan-400/25' : ''}`}
+              autoComplete="off"
+            />
+
+            {err && (
+              <p className="mt-3 text-xs leading-snug text-rose-300" role="alert">
+                {err}
+              </p>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onClickCreate}
+                disabled={busy}
+                className="app-btn-secondary w-full"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={onJoin}
+                disabled={busy}
+                className="app-btn-secondary w-full"
+              >
+                {busy ? '…' : 'Join'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
