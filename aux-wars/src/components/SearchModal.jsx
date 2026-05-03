@@ -235,6 +235,7 @@ export default function SearchModal({
   const searchInputRef = useRef(null)
   const windowMoveHandlerRef = useRef(null)
   const windowUpHandlerRef = useRef(null)
+  const listTouchStartHandlerRef = useRef(null)
 
   // Focus input when opened
   useEffect(() => {
