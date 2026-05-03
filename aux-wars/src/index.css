@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
+/*
+ * Design source: Landing (House Party)
+ * --app-* tokens = canonical palette; --color-aux-* kept for semantic scores / migration
+ */
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-aux-bg: #0d0d0f;
+  --font-display: "Syncopate", ui-sans-serif, sans-serif;
+
+  --color-app-canvas: #05060a;
+  --color-app-text: #e8eaf2;
+  --color-app-modal: #0a0c14;
+
+  --color-aux-bg: #05060a;
   --color-aux-surface: #161618;
   --color-aux-border: #2a2a2e;
   --color-aux-mint: #1ed760;
@@ -11,15 +21,246 @@
   --color-aux-glow-red: rgba(255, 68, 88, 0.35);
 }
 
-body {
-  margin: 0;
-  min-height: 100svh;
-  font-family: var(--font-sans);
-  background: var(--color-aux-bg);
-  color: #e8e8ed;
-  -webkit-font-smoothing: antialiased;
+@layer components {
+  /* Shell: same as Landing root */
+  .app-page {
+    position: relative;
+    min-height: 100svh;
+    overflow-x: hidden;
+    background-color: var(--color-app-canvas);
+    color: var(--color-app-text);
+  }
+
+  /* Entry / card glass (Landing entry panel) */
+  .app-glass-card {
+    border-radius: 1rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-color: rgb(255 255 255 / 0.06);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Modal panel (Room settings) */
+  .app-glass-modal {
+    border-radius: 1rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-color: rgb(10 12 20 / 0.9);
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  /* Inset / list card (lighter glass) */
+  .app-glass-inset {
+    border-radius: 1rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-color: rgb(0 0 0 / 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Create / Join / Share link / Add song (outline) */
+  .app-btn-secondary {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    background-color: rgb(0 0 0 / 0.2);
+    padding: 0.75rem 1rem;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgb(255 255 255);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      opacity 0.15s ease;
+  }
+  .app-btn-secondary:hover:not(:disabled) {
+    border-color: rgb(255 255 255 / 0.28);
+    background-color: rgb(255 255 255 / 0.05);
+  }
+  .app-btn-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Start room / Add to queue (primary CTA) */
+  .app-btn-cta {
+    box-sizing: border-box;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.15);
+    background-color: rgb(255 255 255 / 0.1);
+    padding: 1rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgb(255 255 255);
+    transition:
+      background-color 0.15s ease,
+      opacity 0.15s ease;
+  }
+  .app-btn-cta:hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 0.15);
+  }
+  .app-btn-cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .app-input {
+    box-sizing: border-box;
+    margin-top: 0.5rem;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background-color: rgb(0 0 0 / 0.25);
+    padding: 0.75rem 1rem;
+    color: rgb(255 255 255);
+    font-size: 0.875rem;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .app-input::placeholder {
+    color: rgb(255 255 255 / 0.35);
+  }
+  .app-input:focus {
+    outline: none;
+    border-color: rgb(34 211 238 / 0.4);
+    box-shadow: 0 0 0 1px rgb(34 211 238 / 0.25);
+  }
+
+  .app-input-tight {
+    margin-top: 0;
+  }
+
+  .app-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgb(255 255 255 / 0.4);
+  }
+
+  .app-divider {
+    height: 1px;
+    background-color: rgb(255 255 255 / 0.08);
+  }
+
+  /* Tab track (Swipe / Leaderboard) */
+  .app-tab-track {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-color: rgb(0 0 0 / 0.25);
+    padding: 0.25rem;
+  }
+
+  .app-tab-pill {
+    min-height: 2.75rem;
+    min-width: 0;
+    flex: 1 1 0%;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+  .app-tab-pill-active {
+    background-color: rgb(34 211 238 / 0.9);
+    color: rgb(0 0 0);
+  }
+  .app-tab-pill-idle {
+    color: rgb(255 255 255 / 0.6);
+  }
+  .app-tab-pill-idle:hover {
+    color: rgb(255 255 255);
+  }
+
+  /* Now playing transport: outline circles (Landing secondary feel) */
+  .app-btn-icon-round {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    background-color: rgb(0 0 0 / 0.2);
+    color: rgb(255 255 255);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      opacity 0.15s ease,
+      transform 0.1s ease;
+  }
+  .app-btn-icon-round:hover:not(:disabled) {
+    border-color: rgb(255 255 255 / 0.28);
+    background-color: rgb(255 255 255 / 0.05);
+  }
+  .app-btn-icon-round:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .app-btn-play {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255);
+    color: rgb(0 0 0);
+    transition: transform 0.1s ease;
+  }
 }
 
-#root {
-  min-height: 100svh;
+/*
+ * Keep all global resets inside @layer base so @layer utilities (Tailwind classes)
+ * wins on max-width / width / etc.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  html {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100svh;
+    font-family: var(--font-sans);
+    background: var(--color-app-canvas);
+    color: var(--color-app-text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100svh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
 }

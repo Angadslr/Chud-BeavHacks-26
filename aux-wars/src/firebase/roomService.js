@@ -7,6 +7,7 @@ import {
   runTransaction,
   update,
   onDisconnect,
+  remove,
 } from 'firebase/database'
 import { getDb } from './config'
 
@@ -26,13 +27,22 @@ export function roomRef(roomId) {
   return ref(requireDb(), `rooms/${roomId}`)
 }
 
-export function createRoom(roomId) {
+export function createRoom(roomId, hostId, settings = {}) {
   const now = Date.now()
+  const allowGuestRequests = settings.allowGuestRequests ?? settings.allowRequests
   return set(roomRef(roomId), {
     createdAt: now,
     lastActivityAt: now,
+    hostId: hostId || null,
+    settings: {
+      allowSkip: settings.allowSkip !== false,
+      allowPause: settings.allowPause !== false,
+      allowRequests: allowGuestRequests !== false,
+      allowGuestRequests: allowGuestRequests !== false,
+      playOnAllDevices: settings.playOnAllDevices !== false,
+    },
     nowPlaying: null,
-    previousTrack: null,
+    previousSong: null,
     queue: {},
     votes: {},
     users: {},
@@ -40,8 +50,37 @@ export function createRoom(roomId) {
   })
 }
 
+export function kickUser(roomId, userId) {
+  const userRef = ref(requireDb(), `rooms/${roomId}/users/${userId}`)
+  return remove(userRef)
+}
+
+export function updatePlaybackSync(roomId, currentTime, duration, isPlaying) {
+  return update(ref(requireDb(), `rooms/${roomId}/playback`), {
+    currentTime,
+    duration: Number.isFinite(duration) && duration > 0 ? duration : null,
+    isPlaying,
+    syncedAt: Date.now(),
+  })
+}
+
+export function subscribePlayback(roomId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/playback`)
+  return onValue(r, (snap) => cb(snap.exists() ? snap.val() : null))
+}
+
 export function subscribeRoom(roomId, cb) {
   const r = roomRef(roomId)
+  return onValue(r, (snap) => cb(snap.exists() ? snap.val() : null))
+}
+
+export function subscribeQueue(roomId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/queue`)
+  return onValue(r, (snap) => cb(snap.exists() ? snap.val() : {}))
+}
+
+export function subscribeNowPlaying(roomId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/nowPlaying`)
   return onValue(r, (snap) => cb(snap.exists() ? snap.val() : null))
 }
 
@@ -50,9 +89,47 @@ export function subscribeUsers(roomId, cb) {
   return onValue(r, (snap) => cb(snap.val() || {}))
 }
 
+export function subscribeUserPresence(roomId, userId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/users/${userId}`)
+  return onValue(r, (snap) => cb(snap.exists()))
+}
+
 export async function roomExists(roomId) {
   const snap = await get(roomRef(roomId))
   return snap.exists()
+}
+
+/** Queue rows shown in UI and eligible for playback / voting. */
+export function isValidQueueEntryForUi(song) {
+  if (!song || typeof song !== 'object') return false
+  if (song.videoId == null || String(song.videoId).trim() === '') return false
+  if (song.title === undefined || song.title === null) return false
+  if (String(song.title).trim() === '') return false
+  return true
+}
+
+function isValidQueueSongPayload(payload) {
+  const vid = String(payload?.videoId ?? '').trim()
+  const title = String(payload?.title ?? '').trim()
+  const artist = String(payload?.artist ?? '').trim()
+  return Boolean(vid && title && artist)
+}
+
+export async function cleanupInvalidQueueEntries(roomId) {
+  const qRef = ref(requireDb(), `rooms/${roomId}/queue`)
+  const snap = await get(qRef)
+  if (!snap.exists()) return
+  const queue = snap.val() || {}
+  const updates = {}
+  for (const [id, song] of Object.entries(queue)) {
+    if (!isValidQueueEntryForUi(song)) {
+      updates[`queue/${id}`] = null
+      updates[`votes/${id}`] = null
+    }
+  }
+  if (Object.keys(updates).length === 0) return
+  updates.lastActivityAt = Date.now()
+  await update(ref(requireDb(), `rooms/${roomId}`), updates)
 }
 
 export async function upsertUser(roomId, userId, displayName) {
@@ -81,23 +158,52 @@ export async function addSong(roomId, payload) {
     addedBy,
     addedByUserId,
   } = payload
+  if (!isValidQueueSongPayload({ videoId, title, artist })) {
+    const err = new Error(
+      'Invalid song: videoId, title, and artist are required and must be non-empty.',
+    )
+    err.code = 'INVALID_SONG'
+    throw err
+  }
   const queueRef = ref(requireDb(), `rooms/${roomId}/queue`)
   const newRef = push(queueRef)
-  await set(newRef, {
+  const songId = newRef.key
+  const now = Date.now()
+  const uid = addedByUserId || null
+
+  const songData = {
     videoId,
     title,
     thumbnail,
     artist,
     addedBy,
-    addedByUserId: addedByUserId || null,
-    upvotes: 0,
+    addedByUserId: uid,
+    upvotes: 1,
     downvotes: 0,
-    netScore: 0,
-    totalVotes: 0,
-    addedAt: Date.now(),
-  })
+    netScore: 1,
+    netVotes: 1,
+    totalVotes: 1,
+    addedAt: now,
+  }
+
+  const roomUpdateRef = ref(requireDb(), `rooms/${roomId}`)
+  const patch = {
+    [`queue/${songId}`]: songData,
+    lastActivityAt: now,
+  }
+  if (uid) {
+    patch[`votes/${songId}/${uid}`] = 'up'
+  }
+  await update(roomUpdateRef, patch)
+  return songId
+}
+
+/** Shallow-merge fields on one queue item (e.g. upgrade thumbnail after async cover lookup). */
+export async function patchQueueSong(roomId, queueItemKey, patch) {
+  if (!queueItemKey || !patch || typeof patch !== 'object') return
+  const songRef = ref(requireDb(), `rooms/${roomId}/queue/${queueItemKey}`)
+  await update(songRef, patch)
   await update(ref(requireDb(), `rooms/${roomId}`), { lastActivityAt: Date.now() })
-  return newRef.key
 }
 
 function deriveNetScore(song) {
@@ -113,14 +219,22 @@ function deriveTotalVotes(song) {
   return (song.upvotes || 0) + (song.downvotes || 0)
 }
 
+function deriveNetVotes(song) {
+  if (song == null) return 0
+  if (song.netVotes != null) return song.netVotes
+  return deriveNetScore(song)
+}
+
 function pickWinner(queue) {
-  const entries = Object.entries(queue || {})
+  const entries = Object.entries(queue || {}).filter(([, song]) =>
+    isValidQueueEntryForUi(song),
+  )
   if (entries.length === 0) return null
   let bestId = null
   let bestScore = null
   let bestAdded = null
   for (const [id, song] of entries) {
-    const ns = deriveNetScore(song)
+    const ns = deriveNetVotes(song)
     const added = song.addedAt ?? 0
     if (
       bestId == null ||
@@ -183,9 +297,9 @@ function nowPlayingFromQueueSong(song, queueItemId) {
   const down = song.downvotes ?? 0
   return {
     videoId: song.videoId,
-    title: song.title,
+    title: song.title != null ? String(song.title) : '',
     thumbnail: song.thumbnail,
-    artist: song.artist,
+    artist: song.artist != null ? String(song.artist) : '',
     addedBy: song.addedBy ?? '',
     queueItemId,
     upvotes: up,
@@ -198,8 +312,10 @@ function nowPlayingFromQueueSong(song, queueItemId) {
 /**
  * @param {string} roomId
  * @param {string|null} endedVideoId — null means "start if idle"
+ * @param {{ forceSkip?: boolean }} [options] — host skip bypasses idle/ended guards so one transaction always promotes from live `nowPlaying`
  */
-export function advanceToNextSong(roomId, endedVideoId) {
+export function advanceToNextSong(roomId, endedVideoId, options = {}) {
+  const forceSkip = options.forceSkip === true
   const r = roomRef(roomId)
   return runTransaction(r, (room) => {
     if (!room) return room
@@ -209,10 +325,12 @@ export function advanceToNextSong(roomId, endedVideoId) {
     const np = room.nowPlaying
     const idleStart = endedVideoId == null || endedVideoId === ''
 
-    if (idleStart) {
-      if (np?.videoId) return undefined
-    } else if (np?.videoId !== endedVideoId) {
-      return undefined
+    if (!forceSkip) {
+      if (idleStart) {
+        if (np?.videoId) return undefined
+      } else if (np?.videoId !== endedVideoId) {
+        return undefined
+      }
     }
 
     const outgoing = snapshotTrack(np)
@@ -226,7 +344,8 @@ export function advanceToNextSong(roomId, endedVideoId) {
       return {
         ...room,
         nowPlaying: null,
-        previousTrack: outgoing ?? room.previousTrack ?? null,
+        previousSong: outgoing ?? room.previousSong ?? room.previousTrack ?? null,
+        previousTrack: null,
         playHistory: nextPlayHistory,
         lastActivityAt: now,
       }
@@ -240,7 +359,8 @@ export function advanceToNextSong(roomId, endedVideoId) {
     return {
       ...room,
       nowPlaying: nowPlayingFromQueueSong(s, winner.id),
-      previousTrack: outgoing ?? room.previousTrack ?? null,
+      previousSong: outgoing ?? room.previousSong ?? room.previousTrack ?? null,
+      previousTrack: null,
       queue,
       votes: nextVotes,
       playHistory: nextPlayHistory,
@@ -249,46 +369,9 @@ export function advanceToNextSong(roomId, endedVideoId) {
   })
 }
 
-/** Skip current track: promote top queue item (same rules as auto-advance), no “ended” check. */
+/** Skip: same transaction body as `advanceToNextSong`, without idle/ended guards. */
 export function forceSkipToNext(roomId) {
-  const r = roomRef(roomId)
-  return runTransaction(r, (room) => {
-    if (!room) return room
-
-    const now = Date.now()
-    const np = room.nowPlaying
-    const outgoing = snapshotTrack(np)
-    const nextPlayHistory = np?.videoId
-      ? mergePlayHistory(room, np, now)
-      : room.playHistory || {}
-
-    const queue = room.queue ? { ...room.queue } : {}
-    const winner = pickWinner(queue)
-    if (!winner) {
-      return {
-        ...room,
-        nowPlaying: null,
-        previousTrack: outgoing ?? room.previousTrack ?? null,
-        playHistory: nextPlayHistory,
-        lastActivityAt: now,
-      }
-    }
-
-    delete queue[winner.id]
-    const nextVotes = { ...(room.votes || {}) }
-    delete nextVotes[winner.id]
-    const s = winner.song
-
-    return {
-      ...room,
-      nowPlaying: nowPlayingFromQueueSong(s, winner.id),
-      previousTrack: outgoing ?? room.previousTrack ?? null,
-      queue,
-      votes: nextVotes,
-      playHistory: nextPlayHistory,
-      lastActivityAt: now,
-    }
-  })
+  return advanceToNextSong(roomId, null, { forceSkip: true })
 }
 
 /** Swap now playing with previous track (toggle-style history hop). */
@@ -296,7 +379,7 @@ export function goToPreviousTrack(roomId) {
   const r = roomRef(roomId)
   return runTransaction(r, (room) => {
     if (!room) return room
-    const prev = room.previousTrack
+    const prev = room.previousSong ?? room.previousTrack
     if (!prev?.videoId) return undefined
 
     const now = Date.now()
@@ -316,7 +399,8 @@ export function goToPreviousTrack(roomId) {
         netScore: deriveNetScore(prev),
         totalVotes: deriveTotalVotes(prev),
       },
-      previousTrack: cur,
+      previousSong: cur,
+      previousTrack: null,
       lastActivityAt: now,
     }
   })
@@ -335,6 +419,7 @@ export function submitVote(roomId, songId, userId, direction) {
     const now = Date.now()
     const song = room.queue?.[songId]
     if (!song) return undefined
+    if (!isValidQueueEntryForUi(song)) return undefined
 
     const prior = room.votes?.[songId]?.[userId]
     if (prior === direction) {
