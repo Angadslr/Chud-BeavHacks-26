@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState, memo } from 'react'
+import { updatePlaybackSync, subscribePlayback } from '../firebase/roomService'
 
 let ytApiPromise = null
 
@@ -87,6 +88,111 @@ function PauseIcon() {
   )
 }
 
+/** Guest view when playOnAllDevices is false — shows info + synced progress, no YouTube player */
+function GuestReadOnlyPlayer({ nowPlaying, roomId }) {
+  const [playbackData, setPlaybackData] = useState(null)
+  const [displayTime, setDisplayTime] = useState(0)
+
+  useEffect(() => {
+    if (!roomId) return
+    return subscribePlayback(roomId, setPlaybackData)
+  }, [roomId])
+
+  // Interpolate progress locally so the bar stays smooth between 5-second sync pulses
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setDisplayTime(() => {
+        if (!playbackData) return 0
+        if (!playbackData.isPlaying) return playbackData.currentTime ?? 0
+        const elapsed = (Date.now() - (playbackData.syncedAt ?? Date.now())) / 1000
+        const cap = playbackData.duration || Infinity
+        return Math.min((playbackData.currentTime ?? 0) + elapsed, cap)
+      })
+    }, 250)
+    return () => window.clearInterval(id)
+  }, [playbackData])
+
+  const duration = playbackData?.duration || 0
+  const progressPct = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0
+  const videoId = nowPlaying.videoId
+
+  return (
+    <>
+      {/* Mobile mini-player */}
+      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1d] px-3 py-2.5 sm:hidden">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+          <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-white">{nowPlaying.title}</p>
+          <p className="truncate text-xs text-white/50">{nowPlaying.artist}</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-white/40">
+          Host&apos;s device
+        </span>
+      </div>
+
+      {/* Desktop full player */}
+      <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1a1d] via-[#121214] to-[#080809] shadow-2xl shadow-black/60 sm:block">
+        <div className="relative px-5 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-aux-mint">Now playing</p>
+              <p className="mt-0.5 text-[11px] text-white/35">Playing on host&apos;s device</p>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-white/40">
+              Host Only
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
+            <div className="relative mx-auto w-full max-w-[240px] shrink-0 sm:mx-0 sm:w-[200px]">
+              <div className="absolute -inset-2 rounded-3xl bg-aux-mint/12 blur-2xl" aria-hidden />
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
+                <AlbumCover key={videoId} videoId={videoId} storedThumb={nowPlaying.thumbnail} />
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1 text-left">
+              <h2 className="line-clamp-2 text-pretty text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl">
+                {nowPlaying.title}
+              </h2>
+              <p className="mt-1 line-clamp-1 text-sm font-medium text-white/45 sm:text-base">
+                {nowPlaying.artist}
+              </p>
+
+              {duration > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between tabular-nums text-[11px] text-white/40 sm:text-xs">
+                    <span>{formatTime(displayTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                  <div className="relative mt-2 h-5 py-2">
+                    <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/12" />
+                    <div
+                      className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-aux-mint"
+                      style={{ width: `${progressPct}%`, transition: 'width 0.25s linear' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/45">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zm0-9a.75.75 0 0 1 .75.75v3.69l2.28 2.28a.75.75 0 1 1-1.06 1.06L7.47 9.78A.75.75 0 0 1 7.25 9.2V5.25A.75.75 0 0 1 8 4.5z" />
+                  </svg>
+                  Playing on host&apos;s device
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 function NowPlayingActive({
   nowPlaying,
   onEnded,
@@ -98,6 +204,8 @@ function NowPlayingActive({
   isHost = false,
   allowSkip = true,
   allowPause = true,
+  playOnAllDevices = true,
+  roomId = null,
 }) {
   const hostRef = useRef(null)
   const playerRef = useRef(null)
@@ -106,6 +214,7 @@ function NowPlayingActive({
   const isScrubbingRef = useRef(false)
   const scrubTimeRef = useRef(0)
   const autoplayCheckRef = useRef(null)
+  const currentTimeRef = useRef(0)
 
   const [ytState, setYtState] = useState(-1)
   const [autoplayBlocked, setAutoplayBlocked] = useState(false)
@@ -248,6 +357,7 @@ function NowPlayingActive({
         const c = p.getCurrentTime()
         const d = p.getDuration()
         if (Number.isFinite(d) && d > 0) {
+          currentTimeRef.current = c
           setProgress({ current: c, duration: d })
         }
       } catch {
@@ -257,6 +367,50 @@ function NowPlayingActive({
 
     return () => window.clearInterval(id)
   }, [videoId, ytState])
+
+  // Host: write playback position to Firebase every 5 s so guests can display / sync
+  useEffect(() => {
+    if (!isHost || !roomId) return
+    const id = window.setInterval(() => {
+      const p = playerRef.current
+      if (!p || typeof p.getCurrentTime !== 'function') return
+      try {
+        const ct = p.getCurrentTime()
+        const d = p.getDuration()
+        const st = p.getPlayerState()
+        updatePlaybackSync(roomId, ct, d, st === YT_PLAYING).catch(() => {})
+      } catch {
+        /* noop */
+      }
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [isHost, roomId])
+
+  // Guest in playOnAllDevices mode: subscribe and seek if drift > 3 s
+  useEffect(() => {
+    if (isHost || !roomId || !playOnAllDevices) return
+    return subscribePlayback(roomId, (data) => {
+      if (!data) return
+      const p = playerRef.current
+      if (!p || typeof p.getCurrentTime !== 'function') return
+      try {
+        const elapsed = data.isPlaying ? (Date.now() - (data.syncedAt ?? Date.now())) / 1000 : 0
+        const expected = (data.currentTime ?? 0) + elapsed
+        const myTime = p.getCurrentTime()
+        if (Math.abs(myTime - expected) > 3) {
+          p.seekTo(expected, true)
+        }
+        const st = p.getPlayerState()
+        if (data.isPlaying && st !== YT_PLAYING && st !== YT_BUFFERING) {
+          p.playVideo()
+        } else if (!data.isPlaying && st === YT_PLAYING) {
+          p.pauseVideo()
+        }
+      } catch {
+        /* noop */
+      }
+    })
+  }, [isHost, roomId, playOnAllDevices])
 
   const seekFromClientX = useCallback(
     (clientX) => {
@@ -346,8 +500,21 @@ function NowPlayingActive({
   }, [skipEnabled, onSkip])
 
   const handlePrevious = useCallback(() => {
-    if (!prevEnabled) return
-    onPrevious()
+    if (currentTimeRef.current > 5) {
+      // Restart current song from the beginning
+      const p = playerRef.current
+      if (p && typeof p.seekTo === 'function') {
+        try {
+          p.seekTo(0, true)
+          currentTimeRef.current = 0
+          setProgress((prev) => ({ ...prev, current: 0 }))
+        } catch {
+          /* noop */
+        }
+      }
+    } else if (prevEnabled) {
+      onPrevious()
+    }
   }, [prevEnabled, onPrevious])
 
   const tapToPlay = useCallback(() => {
@@ -530,23 +697,20 @@ function NowPlayingActive({
               </div>
 
               <div className="mt-7 flex max-w-md items-center gap-2 sm:mt-8">
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  disabled={!prevEnabled}
-                  title={
-                    prevEnabled
-                      ? 'Previous track'
-                      : 'No previous track yet — skip or finish a song first'
-                  }
-                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95 sm:h-14 sm:w-14"
-                  aria-label="Previous track"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                    <rect x="2" y="2" width="2" height="12" rx="1" />
-                    <path d="M13 2L5 8L13 14V2Z" />
-                  </svg>
-                </button>
+                {prevEnabled && (
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    title="Restart song · hold for 5 s to go to previous track"
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition-colors hover:bg-white/10 active:scale-95 sm:h-14 sm:w-14"
+                    aria-label="Previous / restart track"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <rect x="2" y="2" width="2" height="12" rx="1" />
+                      <path d="M13 2L5 8L13 14V2Z" />
+                    </svg>
+                  </button>
+                )}
 
                 {allowPause ? (
                   <button
@@ -601,6 +765,11 @@ export default function NowPlaying(props) {
         </div>
       </div>
     )
+  }
+
+  // Guest in host-only mode: show read-only info view (no YouTube player)
+  if (!props.isHost && props.playOnAllDevices === false) {
+    return <GuestReadOnlyPlayer nowPlaying={props.nowPlaying} roomId={props.roomId} />
   }
 
   return <NowPlayingActive key={videoId} {...props} />

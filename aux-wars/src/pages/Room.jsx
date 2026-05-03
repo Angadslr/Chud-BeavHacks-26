@@ -125,10 +125,21 @@ export default function Room() {
     prevVideoRef.current = v
   }, [room?.nowPlaying?.videoId])
 
+  // Persist roomId so Landing can auto-fill on return
+  useEffect(() => {
+    if (roomId && !loading && exists) {
+      localStorage.setItem('lastRoomId', roomId)
+    }
+  }, [roomId, loading, exists])
+
   const copyLink = async () => {
     const url = `${window.location.origin}/room/${roomId}`
     try {
-      await navigator.clipboard.writeText(url)
+      if (navigator.share) {
+        await navigator.share({ title: 'Join my No Skip room', url })
+      } else {
+        await navigator.clipboard.writeText(url)
+      }
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -162,6 +173,7 @@ export default function Room() {
   const settings = room?.settings || {}
   const allowSkip = settings.allowSkip !== false
   const allowPause = settings.allowPause !== false
+  const playOnAllDevices = settings.playOnAllDevices !== false
   const unvotedQueue = queueSorted.filter((s) => !getMyVote(s.id))
 
   return (
@@ -188,7 +200,7 @@ export default function Room() {
               onClick={copyLink}
               className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
             >
-              {copied ? 'Copied!' : 'Copy link'}
+              {copied ? 'Shared!' : 'Share link'}
             </button>
             <button
               type="button"
@@ -231,6 +243,8 @@ export default function Room() {
               isHost={isHost}
               allowSkip={allowSkip}
               allowPause={allowPause}
+              playOnAllDevices={playOnAllDevices}
+              roomId={roomId}
             />
             <UserList
               users={room.users}

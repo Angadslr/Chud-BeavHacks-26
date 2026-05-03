@@ -36,6 +36,8 @@ export function createRoom(roomId, hostId, settings = {}) {
     settings: {
       allowSkip: settings.allowSkip !== false,
       allowPause: settings.allowPause !== false,
+      allowRequests: settings.allowRequests !== false,
+      playOnAllDevices: settings.playOnAllDevices !== false,
     },
     nowPlaying: null,
     previousTrack: null,
@@ -49,6 +51,20 @@ export function createRoom(roomId, hostId, settings = {}) {
 export function kickUser(roomId, userId) {
   const userRef = ref(requireDb(), `rooms/${roomId}/users/${userId}`)
   return remove(userRef)
+}
+
+export function updatePlaybackSync(roomId, currentTime, duration, isPlaying) {
+  return update(ref(requireDb(), `rooms/${roomId}/playback`), {
+    currentTime,
+    duration: Number.isFinite(duration) && duration > 0 ? duration : null,
+    isPlaying,
+    syncedAt: Date.now(),
+  })
+}
+
+export function subscribePlayback(roomId, cb) {
+  const r = ref(requireDb(), `rooms/${roomId}/playback`)
+  return onValue(r, (snap) => cb(snap.exists() ? snap.val() : null))
 }
 
 export function subscribeRoom(roomId, cb) {
